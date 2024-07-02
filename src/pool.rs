@@ -1,6 +1,7 @@
 use sea_orm::ConnectOptions;
-use sea_orm_rocket::{rocket::figment::Figment, Config, Database};
+use sea_orm_rocket::{ rocket::figment::Figment, Config, Database };
 use std::time::Duration;
+use rocket_db_pools::{ Database as RedisDatabase, deadpool_redis };
 
 #[derive(Database, Debug)]
 #[database("sea_orm")]
@@ -10,6 +11,10 @@ pub struct Db(SeaOrmPool);
 pub struct SeaOrmPool {
     pub conn: sea_orm::DatabaseConnection,
 }
+
+#[derive(RedisDatabase)]
+#[database("redis")]
+pub struct RedisPool(deadpool_redis::Pool);
 
 #[async_trait]
 impl sea_orm_rocket::Pool for SeaOrmPool {

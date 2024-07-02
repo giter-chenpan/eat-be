@@ -6,12 +6,15 @@ use rocket::fairing::{ self, AdHoc };
 use rocket::http::Status;
 use rocket::response::status;
 use rocket::{ Build, Request, Rocket };
+use rocket_db_pools::Database as RedisDatabase;
 use sea_orm_rocket::Database;
 mod auth;
 use auth::{ login, register };
 
 mod pool;
-use pool::Db;
+use pool::{ Db, RedisPool };
+
+mod jwtuser;
 
 pub use entity::post;
 pub use entity::post::Entity as Post;
@@ -34,7 +37,7 @@ fn default_catcher(status: Status, req: &Request<'_>) -> status::Custom<String> 
 
 async fn run_migrations(rocket: Rocket<Build>) -> fairing::Result {
     let conn = &Db::fetch(&rocket).unwrap().conn;
-    let _ = migration::Migrator::fresh(conn).await;
+    let _ = migration::Migrator::up(conn, Some(10)).await;
     Ok(rocket)
 }
 
@@ -42,6 +45,7 @@ async fn run_migrations(rocket: Rocket<Build>) -> fairing::Result {
 fn rocket() -> _ {
     rocket
         ::build()
+        .attach(RedisPool::init())
         .attach(Db::init())
         .attach(AdHoc::try_on_ignite("Migrations", run_migrations))
         .mount("/", routes![index, login, register])
