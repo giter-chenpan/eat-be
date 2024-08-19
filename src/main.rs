@@ -16,10 +16,7 @@ use pool::{ Db, RedisPool };
 
 mod jwtuser;
 
-pub use entity::post;
-pub use entity::post::Entity as Post;
-
-#[get("/")]
+#[get("/api")]
 fn index() -> &'static str {
     "Hello, world!"
 }

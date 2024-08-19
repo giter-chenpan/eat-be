@@ -13,6 +13,7 @@ use rocket_db_pools::Connection as RedisConnection;
 
 use crate::pool::{ Db, RedisPool };
 use crate::jwtuser::{ encode_token, decode_token };
+use chrono::Utc;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Params<'r> {
@@ -20,7 +21,7 @@ pub struct Params<'r> {
     pwd: &'r str,
 }
 
-#[post("/login", format = "json", data = "<input>")]
+#[post("/api/login", format = "json", data = "<input>")]
 pub async fn login(
     mut rsdb: RedisConnection<RedisPool>,
     conn: Connection<'_, Db>,
@@ -39,17 +40,18 @@ pub async fn login(
             let opts = SetOptions::default()
                 .conditional_set(ExistenceCheck::NX)
                 .get(true)
-                .with_expiration(SetExpiry::EX(60));
+                .with_expiration(SetExpiry::EX(86400000));
             let new_token = encode_token(id);
-            rsdb.set_options::<&str, &str, String>(id, &new_token, opts).await.unwrap();
-            json!({ "msg": "登陆成功！", "code": "SUCCESS",  "token":encode_token(id)})
+            println!("new token: {}", new_token);
+            let _ = rsdb.set_options::<&str, &str, String>(id, &new_token, opts).await;
+            json!({ "msg": "登陆成功！", "code": "SUCCESS",  "token": new_token})
         } else {
             json!({ "msg": "登陆成功！", "code": "SUCCESS",  "token": redis_token.unwrap()})
         }
     }
 }
 
-#[post("/register", data = "<input>")]
+#[post("/api/register", data = "<input>")]
 pub async fn register(conn: Connection<'_, Db>, input: Json<Params<'_>>) -> Value {
     let db = conn.into_inner();
     let username: Option<user::Model> = find_user_by_name(db, input.name.to_string()).await.expect(
@@ -69,9 +71,12 @@ async fn find_user_by_name(db: &DbConn, name: String) -> Result<Option<user::Mod
 
 async fn insert_user(db: &DbConn, data: Json<Params<'_>>) -> Result<user::ActiveModel, DbErr> {
     // let id = Uuid::new_v4().to_string();
+    let time = Utc::now().timestamp_millis();
+
     (user::ActiveModel {
         name: Set(data.name.to_owned()),
         password: Set(data.pwd.to_owned()),
+        create_time: Set(time),
         ..Default::default()
     }).save(db).await
 }
