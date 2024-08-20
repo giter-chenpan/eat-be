@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{ Utc, Duration };
 
 use serde::{ Serialize, Deserialize };
 use jsonwebtoken::{
@@ -13,20 +13,22 @@ use jsonwebtoken::{
     Validation,
 };
 
-const SECRET: &str = "secret";
+pub const SECRET: &str = "secret";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub aud: String,
     pub iat: i64,
+    pub id: String,
+    pub exp: i64,
 }
 
 pub fn encode_token(aud: &str) -> String {
-    let time = Utc::now().timestamp_millis();
+    let time = Utc::now().timestamp();
 
     let my_claims = Claims {
-        aud: aud.to_owned(),
+        id: aud.to_owned(),
         iat: time,
+        exp: (Utc::now() + Duration::days(1)).timestamp(),
     };
     let token = encode(
         &Header::default(),
@@ -34,16 +36,4 @@ pub fn encode_token(aud: &str) -> String {
         &EncodingKey::from_secret(SECRET.as_ref())
     ).expect("encode token fail!");
     token
-}
-
-pub fn decode_token(token: &str, aud: &str) -> Result<TokenData<Claims>, Error> {
-    let mut validation = Validation::new(Algorithm::HS256);
-    validation.set_audience(&[aud]);
-    validation.validate_exp = false;
-    let decode_val = decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(SECRET.as_ref()),
-        &validation
-    );
-    decode_val
 }

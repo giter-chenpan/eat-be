@@ -1,6 +1,9 @@
 use ::entity::user::{ self, Entity as User };
-use rocket::serde::json::{ json, Json, Value };
-use rocket::serde::{ Deserialize, Serialize };
+use rocket::{
+    request::{ self, FromRequest, Request },
+    serde::{ Deserialize, Serialize, json::{ json, Json, Value } },
+    outcome::Outcome,
+};
 use rocket_db_pools::deadpool_redis::redis::{
     AsyncCommands,
     ExistenceCheck,
@@ -12,8 +15,9 @@ use sea_orm_rocket::Connection;
 use rocket_db_pools::Connection as RedisConnection;
 
 use crate::pool::{ Db, RedisPool };
-use crate::jwtuser::{ encode_token, decode_token };
-use chrono::Utc;
+use crate::jwtuser::{ encode_token, Claims, SECRET };
+use jsonwebtoken::{ decode, DecodingKey, Validation, Algorithm };
+use chrono::Local;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Params<'r> {
@@ -70,13 +74,33 @@ async fn find_user_by_name(db: &DbConn, name: String) -> Result<Option<user::Mod
 }
 
 async fn insert_user(db: &DbConn, data: Json<Params<'_>>) -> Result<user::ActiveModel, DbErr> {
-    // let id = Uuid::new_v4().to_string();
-    let time = Utc::now().timestamp_millis();
-
+    let time = Local::now();
     (user::ActiveModel {
         name: Set(data.name.to_owned()),
         password: Set(data.pwd.to_owned()),
         create_time: Set(time),
         ..Default::default()
     }).save(db).await
+}
+
+// token 拦截器
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for Claims {
+    type Error = ();
+
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        // 获取请求头中的 Authorization 字段
+        let token = match request.headers().get_one("Authorization") {
+            Some(token) => token.to_string(),
+            None => {
+                return Outcome::Error((rocket::http::Status::Unauthorized, ()));
+            }
+        };
+
+        let validation = Validation::new(Algorithm::HS256);
+        match decode::<Claims>(&token, &DecodingKey::from_secret(SECRET.as_ref()), &validation) {
+            Ok(token_data) => Outcome::Success(token_data.claims),
+            Err(_) => Outcome::Error((rocket::http::Status::Unauthorized, ())),
+        }
+    }
 }
