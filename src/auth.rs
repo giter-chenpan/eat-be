@@ -44,7 +44,7 @@ pub async fn login(
             let opts = SetOptions::default()
                 .conditional_set(ExistenceCheck::NX)
                 .get(true)
-                .with_expiration(SetExpiry::EX(86400000));
+                .with_expiration(SetExpiry::EX(2592000));
             let new_token = encode_token(id);
             println!("new token: {}", new_token);
             let _ = rsdb.set_options::<&str, &str, String>(id, &new_token, opts).await;
@@ -97,7 +97,10 @@ impl<'r> FromRequest<'r> for Claims {
             }
         };
 
-        let validation = Validation::new(Algorithm::HS256);
+        println!("{}", token);
+
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.validate_exp = true;
         match decode::<Claims>(&token, &DecodingKey::from_secret(SECRET.as_ref()), &validation) {
             Ok(token_data) => Outcome::Success(token_data.claims),
             Err(_) => Outcome::Error((rocket::http::Status::Unauthorized, ())),

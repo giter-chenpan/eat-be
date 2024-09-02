@@ -1,17 +1,7 @@
 use chrono::{ Utc, Duration };
 
 use serde::{ Serialize, Deserialize };
-use jsonwebtoken::{
-    decode,
-    encode,
-    errors::Error,
-    Algorithm,
-    DecodingKey,
-    EncodingKey,
-    Header,
-    TokenData,
-    Validation,
-};
+use jsonwebtoken::{ encode, EncodingKey, Header };
 
 pub const SECRET: &str = "secret";
 
@@ -28,7 +18,7 @@ pub fn encode_token(aud: &str) -> String {
     let my_claims = Claims {
         id: aud.to_owned(),
         iat: time,
-        exp: (Utc::now() + Duration::days(1)).timestamp(),
+        exp: (Utc::now() + Duration::days(30)).timestamp(),
     };
     let token = encode(
         &Header::default(),

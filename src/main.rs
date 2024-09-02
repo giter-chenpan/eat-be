@@ -2,12 +2,13 @@
 extern crate rocket;
 
 use migration::MigratorTrait;
-use rocket::fairing::{ self, AdHoc };
-use rocket::http::Status;
-use rocket::response::status;
-use rocket::{ Build, Request, Rocket };
+
+use rocket::{ Build, Request, Rocket, response::status, http::Status, fairing::{ self, AdHoc } };
 use rocket_db_pools::Database as RedisDatabase;
 use sea_orm_rocket::Database;
+
+mod api;
+
 mod auth;
 use auth::{ login, register };
 
@@ -46,5 +47,6 @@ fn rocket() -> _ {
         .attach(Db::init())
         .attach(AdHoc::try_on_ignite("Migrations", run_migrations))
         .mount("/", routes![index, login, register])
+        .mount("/api", api::api_routes())
         .register("/", catchers![not_found, default_catcher])
 }

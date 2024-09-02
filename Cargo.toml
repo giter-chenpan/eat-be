@@ -18,6 +18,7 @@ migration = { path = "migration" }
 entity = { path = "entity" }
 jsonwebtoken = "9.3.0"
 chrono = "0.4.38"
+calamine = "0.25.0"
 
 
 [dependencies.uuid]
