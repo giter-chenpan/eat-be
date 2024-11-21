@@ -6,19 +6,21 @@ use migration::MigratorTrait;
 use rocket::{ Build, Request, Rocket, response::status, http::Status, fairing::{ self, AdHoc } };
 use rocket_db_pools::Database as RedisDatabase;
 use sea_orm_rocket::Database;
+use rocket_okapi::{ openapi, openapi_get_routes, swagger_ui::{ make_swagger_ui, SwaggerUIConfig } };
 
 mod api;
 
 mod auth;
-use auth::{ login, register };
 
 mod pool;
+
 use pool::{ Db, RedisPool };
 
 mod jwtuser;
 
-#[get("/api")]
-fn index() -> &'static str {
+#[openapi(tag = "index")]
+#[get("/")]
+fn home() -> &'static str {
     "Hello, world!"
 }
 
@@ -46,7 +48,26 @@ fn rocket() -> _ {
         .attach(RedisPool::init())
         .attach(Db::init())
         .attach(AdHoc::try_on_ignite("Migrations", run_migrations))
-        .mount("/", routes![index, login, register])
-        .mount("/api", api::api_routes())
+        .mount(
+            "/",
+            openapi_get_routes![
+                home,
+                auth::login,
+                auth::register,
+                auth::get_user_info,
+                api::category::import_category,
+                api::category::get_category,
+                api::category::delete_category
+            ]
+        )
+        .mount(
+            "/swagger-ui/",
+            make_swagger_ui(
+                &(SwaggerUIConfig {
+                    url: "/openapi.json".to_string(),
+                    ..Default::default()
+                })
+            )
+        )
         .register("/", catchers![not_found, default_catcher])
 }

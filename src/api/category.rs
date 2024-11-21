@@ -1,4 +1,6 @@
-use ::entity::category::{ self, Entity as Category, Model };
+use ::entity::category::{ self, Entity as Category };
+use rocket_okapi::openapi;
+use schemars::JsonSchema;
 use sea_orm::{ ActiveModelTrait, DbConn, DbErr, EntityTrait, Set };
 use crate::jwtuser::Claims;
 use rocket::{ form::Form, fs::TempFile, serde::json::{ json, Value } };
@@ -6,12 +8,13 @@ use crate::pool::Db;
 use calamine::{ open_workbook_auto, Reader };
 use sea_orm_rocket::Connection;
 
-#[derive(FromForm)]
+#[derive(FromForm, JsonSchema)]
 pub struct FileUpload<'r> {
+    #[schemars(skip)]
     file: TempFile<'r>,
 }
-
-#[post("/category/import", data = "<form_data>", format = "multipart")]
+#[openapi(tag = "category", ignore = "conn")]
+#[post("/category/import", data = "<form_data>")]
 pub async fn import_category(
     _claims: Claims,
     conn: Connection<'_, Db>,
@@ -45,10 +48,37 @@ async fn insert_category(
     }).save(db).await
 }
 
-async fn get_category<T>(db: &DbConn, id: String) -> Result<Vec<Model>, DbErr> {
-    if id.is_empty() {
+#[openapi(tag = "category", ignore = "db")]
+#[get("/getcategory?<id>")]
+pub async fn get_category(_claims: Claims, db: Connection<'_, Db>, id: Option<String>) -> Value {
+    let db = db.into_inner();
+    let result = if id.is_none() {
         Category::find().all(db).await
     } else {
-        Category::find_by_id(id.parse().unwrap_or(0)).all(db).await
+        Category::find_by_id(id.unwrap().parse::<i32>().unwrap_or(0))
+            .one(db).await
+            .map(|r| vec![r.unwrap()])
+    };
+
+    match result {
+        Ok(categories) =>
+            json!({
+            "code": "success",
+            "data": categories
+        }),
+        Err(_) => json!({
+            "code": "error", 
+            "msg": "查询失败"
+        }),
+    }
+}
+
+#[openapi(tag = "category", ignore = "db")]
+#[delete("/category/delete?<id>")]
+pub async fn delete_category(_claims: Claims, db: Connection<'_, Db>, id: String) -> Value {
+    let result = Category::delete_by_id(id.parse::<i32>().unwrap_or(0)).exec(db.into_inner()).await;
+    match result {
+        Ok(_) => json!({ "msg": "删除成功", "code": "success" }),
+        Err(_) => json!({ "msg": "删除失败", "code": "error" }),
     }
 }

@@ -19,6 +19,8 @@ entity = { path = "entity" }
 jsonwebtoken = "9.3.0"
 chrono = "0.4.38"
 calamine = "0.25.0"
+rocket_okapi = { version = "0.9.0", features = ["swagger", "rapidoc"] }
+schemars = "0.8"
 
 
 [dependencies.uuid]
