@@ -105,7 +105,12 @@ pub async fn get_user_info(_claims: Claims, conn: Connection<'_, Db>) -> Value {
     let db = conn.into_inner();
     let id = _claims.sub.parse::<i32>().unwrap_or(0);
     match User::find_by_id(id).one(db).await {
-        Ok(user) => json!({ "msg": "获取用户信息成功", "code": "success", "data": user }),
+        Ok(user) =>
+            json!({ "msg": "获取用户信息成功", "code": "success", "data": {
+            "id": user.clone().unwrap().id,
+            "name": user.clone().unwrap().name,
+            "create_time": user.clone().unwrap().create_time,
+        } }),
         Err(_) => json!({ "msg": "服务器错误", "code": "server_error" }),
     }
 }
@@ -119,7 +124,7 @@ async fn insert_user(db: &DbConn, data: Json<Params<'_>>) -> Result<user::Active
     (user::ActiveModel {
         name: Set(data.name.to_owned()),
         password: Set(data.pwd.to_owned()),
-        create_time: Set(time),
+        create_time: Set(time.naive_utc()),
         ..Default::default()
     }).save(db).await
 }

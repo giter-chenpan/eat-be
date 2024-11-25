@@ -13,6 +13,10 @@ pub struct FileUpload<'r> {
     #[schemars(skip)]
     file: TempFile<'r>,
 }
+
+/// # Import cuisine classification
+///
+/// Import cuisine classification from excel
 #[openapi(tag = "category", ignore = "conn")]
 #[post("/category/import", data = "<form_data>")]
 pub async fn import_category(
@@ -48,6 +52,9 @@ async fn insert_category(
     }).save(db).await
 }
 
+/// # Get cuisine classification
+///
+/// Returns all cuisine
 #[openapi(tag = "category", ignore = "db")]
 #[get("/getcategory?<id>")]
 pub async fn get_category(_claims: Claims, db: Connection<'_, Db>, id: Option<String>) -> Value {
@@ -64,7 +71,13 @@ pub async fn get_category(_claims: Claims, db: Connection<'_, Db>, id: Option<St
         Ok(categories) =>
             json!({
             "code": "success",
-            "data": categories
+            "data": categories.iter().map(|c| {
+                json!({
+                    "id": c.id,
+                    "name": c.name,
+                    "desc": c.desc,
+                })
+            }).collect::<Vec<Value>>()
         }),
         Err(_) => json!({
             "code": "error", 
@@ -73,6 +86,9 @@ pub async fn get_category(_claims: Claims, db: Connection<'_, Db>, id: Option<St
     }
 }
 
+/// # Delete cuisine classification
+///
+/// Delete cuisine classification by id
 #[openapi(tag = "category", ignore = "db")]
 #[delete("/category/delete?<id>")]
 pub async fn delete_category(_claims: Claims, db: Connection<'_, Db>, id: String) -> Value {

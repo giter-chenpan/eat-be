@@ -3,12 +3,15 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "category")]
+#[sea_orm(table_name = "dishes_images")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub name: String,
-    pub desc: String,
+    pub create_time: DateTimeUtc,
+    pub update_time: DateTimeUtc,
+    #[sea_orm(column_type = "Binary(BlobSize::Long)", nullable)]
+    pub image_data: Option<Vec<u8>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
