@@ -18,7 +18,7 @@ pub struct FileUpload<'r> {
 ///
 /// Import cuisine classification from excel
 #[openapi(tag = "category", ignore = "conn")]
-#[post("/category/import", data = "<form_data>")]
+#[post("/api/category/import", data = "<form_data>")]
 pub async fn import_category(
     _claims: Claims,
     conn: Connection<'_, Db>,
@@ -56,7 +56,7 @@ async fn insert_category(
 ///
 /// Returns all cuisine
 #[openapi(tag = "category", ignore = "db")]
-#[get("/getcategory?<id>")]
+#[get("/api/category?<id>")]
 pub async fn get_category(_claims: Claims, db: Connection<'_, Db>, id: Option<String>) -> Value {
     let db = db.into_inner();
     let result = if id.is_none() {
@@ -90,7 +90,7 @@ pub async fn get_category(_claims: Claims, db: Connection<'_, Db>, id: Option<St
 ///
 /// Delete cuisine classification by id
 #[openapi(tag = "category", ignore = "db")]
-#[delete("/category/delete?<id>")]
+#[delete("/api/category/delete?<id>")]
 pub async fn delete_category(_claims: Claims, db: Connection<'_, Db>, id: String) -> Value {
     let result = Category::delete_by_id(id.parse::<i32>().unwrap_or(0)).exec(db.into_inner()).await;
     match result {

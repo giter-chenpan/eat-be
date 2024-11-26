@@ -50,7 +50,8 @@ fn rocket() -> _ {
                 api::category::get_category,
                 api::category::delete_category,
                 api::dishes::save_dishes,
-                api::file::upload_file
+                api::file::upload_file,
+                api::file::get_image
             ]
         )
         .mount(
