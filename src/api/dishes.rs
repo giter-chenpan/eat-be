@@ -15,6 +15,12 @@ pub struct ImportDishes {
     view_id: String,
 }
 
+#[derive(Deserialize, Serialize, JsonSchema)]
+pub struct FindPage {
+    page: i32,
+    page_size: i32,
+}
+
 /// #save dishes
 ///
 /// save dishes
@@ -42,6 +48,12 @@ pub async fn save_dishes(
         Ok(_) => json!({ "code": "success", "msg": "保存成功" }),
         Err(_) => json!({ "code": "error", "msg": "保存失败" }),
     }
+}
+
+#[openapi(tag = "dishes", ignore = "db")]
+#[post("/api/dishes/findpage", data = "<data>")]
+pub fn find_page(_claims: Claims, db: Connection<'_, Db>, data: Option<Json<FindPage>>) -> Value {
+    json!({ "code": "success", "msg": "获取成功" })
 }
 
 #[openapi(tag = "dishes", ignore = "db")]

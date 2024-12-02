@@ -30,7 +30,7 @@ pub struct Params<'r> {
 }
 
 #[openapi(tag = "auth", ignore = "rsdb", ignore = "conn")]
-#[post("/login", format = "json", data = "<input>")]
+#[post("/anon/login", format = "json", data = "<input>")]
 pub async fn login(
     mut rsdb: RedisConnection<RedisPool>,
     conn: Connection<'_, Db>,
@@ -80,7 +80,7 @@ pub async fn login(
 }
 
 #[openapi(tag = "auth", ignore = "conn")]
-#[post("/register", data = "<input>")]
+#[post("/anon/register", data = "<input>")]
 pub async fn register(conn: Connection<'_, Db>, input: Json<Params<'_>>) -> Value {
     let db = conn.into_inner();
     match find_user_by_name(db, input.name.to_string()).await {
@@ -100,7 +100,7 @@ pub async fn register(conn: Connection<'_, Db>, input: Json<Params<'_>>) -> Valu
 }
 
 #[openapi(tag = "auth", ignore = "conn")]
-#[get("/getuserinfo")]
+#[get("/api/getuserinfo")]
 pub async fn get_user_info(_claims: Claims, conn: Connection<'_, Db>) -> Value {
     let db = conn.into_inner();
     let id = _claims.sub.parse::<i32>().unwrap_or(0);
