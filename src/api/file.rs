@@ -52,7 +52,8 @@ pub async fn upload_file(
         ..Default::default()
     }).insert(db).await;
     match result {
-        Ok(_) => json!({ "msg": "上传成功", "code": "success" }),
+        Ok(image) =>
+            json!({ "msg": "上传成功", "code": "success", "data": json!({"id": image.id, "url": format!("/api/file/getimage?id={}", image.id)})}),
         Err(e) => json!({ "msg": format!("{}", e), "code": "error" }),
     }
 }
