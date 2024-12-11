@@ -1,11 +1,14 @@
-use chrono::Utc;
-use rocket_okapi::{ openapi, JsonSchema };
-use sea_orm::{ ActiveModelTrait, Set };
 use crate::jwtuser::Claims;
 use crate::pool::Db;
+use ::entity::dishes::{self, Entity as Dishes};
+use chrono::Utc;
+use rocket::serde::{
+    json::{json, Json, Value},
+    Deserialize, Serialize,
+};
+use rocket_okapi::{openapi, JsonSchema};
+use sea_orm::{ActiveModelTrait, EntityTrait, PaginatorTrait, QueryOrder, Set};
 use sea_orm_rocket::Connection;
-use rocket::serde::{ Deserialize, Serialize, json::{ json, Json, Value } };
-use ::entity::dishes::{ self };
 
 #[derive(Deserialize, Serialize, JsonSchema)]
 pub struct ImportDishes {
@@ -29,7 +32,7 @@ pub struct FindPage {
 pub async fn save_dishes(
     _claims: Claims,
     db: Connection<'_, Db>,
-    data: Json<ImportDishes>
+    data: Json<ImportDishes>,
 ) -> Value {
     let db = db.into_inner();
     let result = (dishes::ActiveModel {
@@ -42,7 +45,9 @@ pub async fn save_dishes(
         status: Set("1".to_owned()), // 1: 正常 0: 停用
         create_user: Set(_claims.sub.to_owned()),
         ..Default::default()
-    }).save(db).await;
+    })
+    .save(db)
+    .await;
 
     match result {
         Ok(_) => json!({ "code": "success", "msg": "保存成功" }),
@@ -52,8 +57,23 @@ pub async fn save_dishes(
 
 #[openapi(tag = "dishes", ignore = "db")]
 #[post("/api/dishes/findpage", data = "<data>")]
-pub fn find_page(_claims: Claims, db: Connection<'_, Db>, data: Option<Json<FindPage>>) -> Value {
-    json!({ "code": "success", "msg": "获取成功" })
+pub async fn find_page(
+    _claims: Claims,
+    db: Connection<'_, Db>,
+    data: Option<Json<FindPage>>,
+) -> Value {
+    let db = db.into_inner();
+    let result = Dishes::find()
+        .order_by_asc(dishes::Column::Id)
+        .paginate(db, 50);
+
+    while let Some(dishes) = result.fetch_and_next().await? {
+        // Do something on cakes: Vec<cake::Model>
+        return json!({ "code": "success", "msg": "获取成功", "data": json!({
+                "list": result
+            }) });
+    }
+    .into()
 }
 
 #[openapi(tag = "dishes", ignore = "db")]

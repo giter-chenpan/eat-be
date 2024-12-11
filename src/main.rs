@@ -1,10 +1,13 @@
 #[macro_use]
 extern crate rocket;
 
-use rocket::{ Request, response::status, http::Status };
+use rocket::{http::Status, response::status, Request};
 use rocket_db_pools::Database as RedisDatabase;
+use rocket_okapi::{
+    openapi, openapi_get_routes,
+    swagger_ui::{make_swagger_ui, SwaggerUIConfig},
+};
 use sea_orm_rocket::Database;
-use rocket_okapi::{ openapi, openapi_get_routes, swagger_ui::{ make_swagger_ui, SwaggerUIConfig } };
 
 mod api;
 
@@ -12,7 +15,7 @@ mod auth;
 
 mod pool;
 
-use pool::{ Db, RedisPool };
+use pool::{Db, RedisPool};
 
 mod jwtuser;
 
@@ -35,8 +38,7 @@ fn default_catcher(status: Status, req: &Request<'_>) -> status::Custom<String> 
 
 #[launch]
 fn rocket() -> _ {
-    rocket
-        ::build()
+    rocket::build()
         .attach(RedisPool::init())
         .attach(Db::init())
         .mount(
@@ -50,9 +52,10 @@ fn rocket() -> _ {
                 api::category::get_category,
                 api::category::delete_category,
                 api::dishes::save_dishes,
+                api::dishes::find_page,
                 api::file::upload_file,
                 api::file::get_image
-            ]
+            ],
         )
         .mount(
             "/swagger-ui/",
@@ -60,8 +63,8 @@ fn rocket() -> _ {
                 &(SwaggerUIConfig {
                     url: "/openapi.json".to_string(),
                     ..Default::default()
-                })
-            )
+                }),
+            ),
         )
         .register("/", catchers![not_found, default_catcher])
 }
