@@ -1066,6 +1066,7 @@ dependencies = [
  "rocket_okapi",
  "schemars",
  "sea-orm",
+ "serde",
 ]
 
 [[package]]

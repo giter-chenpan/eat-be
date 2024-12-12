@@ -6,7 +6,8 @@ sea-orm-cli migrate up   //Apply all pending migrations
 
 ```
 ## 数据库生成entity
+[文档](https://www.sea-ql.org/SeaORM/docs/generate-entity/sea-orm-cli/)
 ```
 # Show how to use `generate entity` subcommand
-sea-orm-cli generate entity -u mysql://{xxxx} -o {dir}
+sea-orm-cli generate entity -u mysql://{xxxx} -o {dir} --with-serde both --ignore-tables dishes_images
 ```

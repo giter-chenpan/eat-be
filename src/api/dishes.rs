@@ -63,17 +63,17 @@ pub async fn find_page(
     data: Option<Json<FindPage>>,
 ) -> Value {
     let db = db.into_inner();
-    let result = Dishes::find()
-        .order_by_asc(dishes::Column::Id)
-        .paginate(db, 50);
+    let result = Dishes::find().all(db).await;
 
-    while let Some(dishes) = result.fetch_and_next().await? {
-        // Do something on cakes: Vec<cake::Model>
-        return json!({ "code": "success", "msg": "获取成功", "data": json!({
-                "list": result
-            }) });
+    match result {
+        Ok(dishes) => json!({ "code": "success", "msg": "获取成功", "data":{
+            "list": dishes
+        } }),
+        Err(_) => json!({
+            "code": "error",
+            "msg": "查询失败"
+        }),
     }
-    .into()
 }
 
 #[openapi(tag = "dishes", ignore = "db")]
