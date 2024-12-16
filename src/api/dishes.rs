@@ -63,7 +63,8 @@ pub async fn find_page(
     data: Option<Json<FindPage>>,
 ) -> Value {
     let db = db.into_inner();
-    let result = Dishes::find().all(db).await;
+    let id = _claims.sub.parse::<i32>().unwrap_or(0);
+    let result = Dishes::find_by_id(id).all(db).await;
 
     match result {
         Ok(dishes) => json!({ "code": "success", "msg": "获取成功", "data":{
