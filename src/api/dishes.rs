@@ -7,7 +7,9 @@ use rocket::serde::{
     Deserialize, Serialize,
 };
 use rocket_okapi::{openapi, JsonSchema};
-use sea_orm::{ActiveModelTrait, EntityTrait, PaginatorTrait, QueryOrder, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set,
+};
 use sea_orm_rocket::Connection;
 
 #[derive(Deserialize, Serialize, JsonSchema)]
@@ -63,8 +65,11 @@ pub async fn find_page(
     data: Option<Json<FindPage>>,
 ) -> Value {
     let db = db.into_inner();
-    let id = _claims.sub.parse::<i32>().unwrap_or(0);
-    let result = Dishes::find_by_id(id).all(db).await;
+    let user_id = _claims.sub.parse::<i32>().unwrap_or(0);
+    let result = Dishes::find()
+        .filter(dishes::Column::CreateUser.eq(user_id))
+        .all(db)
+        .await;
 
     match result {
         Ok(dishes) => json!({ "code": "success", "msg": "获取成功", "data":{
