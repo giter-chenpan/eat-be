@@ -53,6 +53,7 @@ fn rocket() -> _ {
                 api::category::delete_category,
                 api::dishes::save_dishes,
                 api::dishes::find_page,
+                api::dishes::get_random_dishes,
                 api::file::upload_file,
                 api::file::get_image
             ],

@@ -2,13 +2,15 @@ use crate::jwtuser::Claims;
 use crate::pool::Db;
 use ::entity::dishes::{self, Entity as Dishes};
 use chrono::Utc;
+use rand::prelude::*;
 use rocket::serde::{
     json::{json, Json, Value},
     Deserialize, Serialize,
 };
 use rocket_okapi::{openapi, JsonSchema};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set,
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect,
+    QueryStream, Set,
 };
 use sea_orm_rocket::Connection;
 
@@ -85,5 +87,21 @@ pub async fn find_page(
 #[openapi(tag = "dishes", ignore = "db")]
 #[get("/api/dishes/random")]
 pub async fn get_random_dishes(_claims: Claims, db: Connection<'_, Db>) -> Value {
-    json!({ "code": "success", "msg": "获取成功" })
+    let db = db.into_inner();
+    let len = Dishes::find().all(db).await.unwrap().len();
+    if len <= 0 {
+        return json!({ "code": "error", "msg": "空数据" });
+    }
+
+    let mut rng = thread_rng();
+    let index = rng.gen_range(0..len); // 生成一个随机数
+
+    match index {
+        0 => return json!({ "code": "error", "msg": "获取失败" }),
+        _ => {
+            let result = Dishes::find().offset(index).limit(1).one(db).await.unwrap();
+
+            json!({ "code": "success", "msg": "获取成功", "data": result })
+        }
+    }
 }

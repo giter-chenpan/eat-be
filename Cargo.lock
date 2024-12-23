@@ -1029,6 +1029,7 @@ dependencies = [
  "entity",
  "jsonwebtoken",
  "migration",
+ "rand",
  "rocket",
  "rocket_db_pools",
  "rocket_okapi",
