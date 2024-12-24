@@ -8,10 +8,7 @@ use rocket::serde::{
     Deserialize, Serialize,
 };
 use rocket_okapi::{openapi, JsonSchema};
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect,
-    QueryStream, Set,
-};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, Set};
 use sea_orm_rocket::Connection;
 
 #[derive(Deserialize, Serialize, JsonSchema)]
@@ -93,15 +90,14 @@ pub async fn get_random_dishes(_claims: Claims, db: Connection<'_, Db>) -> Value
         return json!({ "code": "error", "msg": "空数据" });
     }
 
-    let mut rng = thread_rng();
-    let index = rng.gen_range(0..len); // 生成一个随机数
+    let index = {
+        let mut rng = rand::thread_rng();
+        rng.gen_range(0..len)
+    }; // 生成一个随机数
 
-    match index {
-        0 => return json!({ "code": "error", "msg": "获取失败" }),
-        _ => {
-            let result = Dishes::find().offset(index).limit(1).one(db).await.unwrap();
-
-            json!({ "code": "success", "msg": "获取成功", "data": result })
-        }
+    let result = Dishes::find().offset(index as u64).limit(1).one(db).await;
+    match result {
+        Ok(dishes) => json!({ "code": "success", "msg": "获取成功", "data": dishes }),
+        Err(_) => json!({ "code": "error", "msg": "获取失败" }),
     }
 }
