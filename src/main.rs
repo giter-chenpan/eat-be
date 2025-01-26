@@ -1,12 +1,10 @@
 #[macro_use]
 extern crate rocket;
 
-use rocket::{http::Status, response::status, Request};
+use migration::MigratorTrait;
+use rocket::{ fairing::{ self, AdHoc }, http::Status, response::status, Build, Request, Rocket };
 use rocket_db_pools::Database as RedisDatabase;
-use rocket_okapi::{
-    openapi, openapi_get_routes,
-    swagger_ui::{make_swagger_ui, SwaggerUIConfig},
-};
+use rocket_okapi::{ openapi, openapi_get_routes, swagger_ui::{ make_swagger_ui, SwaggerUIConfig } };
 use sea_orm_rocket::Database;
 
 mod api;
@@ -15,7 +13,7 @@ mod auth;
 
 mod pool;
 
-use pool::{Db, RedisPool};
+use pool::{ Db, RedisPool };
 
 mod jwtuser;
 
@@ -36,11 +34,20 @@ fn default_catcher(status: Status, req: &Request<'_>) -> status::Custom<String> 
     status::Custom(status, msg)
 }
 
+async fn run_migrations(rocket: Rocket<Build>) -> fairing::Result {
+    let conn = &Db::fetch(&rocket).unwrap().conn;
+    //初次执行用 fresh()方法
+    let _ = migration::Migrator::install(conn).await;
+    Ok(rocket)
+}
+
 #[launch]
 fn rocket() -> _ {
-    rocket::build()
+    rocket
+        ::build()
         .attach(RedisPool::init())
         .attach(Db::init())
+        .attach(AdHoc::try_on_ignite("Migrations", run_migrations))
         .mount(
             "/",
             openapi_get_routes![
@@ -56,7 +63,7 @@ fn rocket() -> _ {
                 api::dishes::get_random_dishes,
                 api::file::upload_file,
                 api::file::get_image
-            ],
+            ]
         )
         .mount(
             "/swagger-ui/",
@@ -64,8 +71,8 @@ fn rocket() -> _ {
                 &(SwaggerUIConfig {
                     url: "/openapi.json".to_string(),
                     ..Default::default()
-                }),
-            ),
+                })
+            )
         )
         .register("/", catchers![not_found, default_catcher])
 }
