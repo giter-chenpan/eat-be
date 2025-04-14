@@ -1,17 +1,17 @@
 use crate::jwtuser::Claims;
 use chrono::Local;
-use rocket_okapi::{openapi, JsonSchema};
+use rocket_okapi::{ openapi, JsonSchema };
 
 use crate::pool::Db;
-use ::entity::dishes_images::{self};
+use ::entity::dishes_images::{ self };
 use rocket::{
     form::Form,
     fs::TempFile,
     http::ContentType,
-    serde::json::{json, Value},
+    serde::json::{ json, Value },
     tokio::io::AsyncReadExt,
 };
-use sea_orm::{ActiveModelTrait, EntityTrait, Set};
+use sea_orm::{ ActiveModelTrait, EntityTrait, Set };
 use sea_orm_rocket::Connection;
 
 #[derive(FromForm, JsonSchema)]
@@ -28,7 +28,7 @@ pub struct FileUpload<'r> {
 pub async fn upload_file(
     _claims: Claims,
     db: Connection<'_, Db>,
-    form_data: Form<FileUpload<'_>>,
+    form_data: Form<FileUpload<'_>>
 ) -> Value {
     let db = db.into_inner();
     // 获取文件名和数据
@@ -50,9 +50,7 @@ pub async fn upload_file(
         create_time: Set(Local::now().to_utc()),
         update_time: Set(Local::now().to_utc()),
         ..Default::default()
-    })
-    .insert(db)
-    .await;
+    }).insert(db).await;
     match result {
         Ok(image) => {
             json!({ "msg": "上传成功", "code": "success", "data": json!({"id": image.id, "url": format!("/api/file/getimage?id={}", image.id)})})
@@ -68,21 +66,21 @@ pub async fn upload_file(
 #[get("/api/file/getimage?<id>")]
 pub async fn get_image(
     db: Connection<'_, Db>,
-    id: String,
+    id: String
 ) -> Result<(ContentType, Vec<u8>), Value> {
     let db = db.into_inner();
-    let result = dishes_images::Entity::find_by_id(id.parse::<i32>().unwrap_or(0))
-        .one(db)
-        .await;
+    let result = dishes_images::Entity::find_by_id(id.parse::<i32>().unwrap_or(0)).one(db).await;
     match result {
         Ok(Some(image)) => {
             if let Some(image_data) = image.image_data {
                 Ok((ContentType::PNG, image_data))
             } else {
-                Err(json!({
+                Err(
+                    json!({
                     "msg": "图片数据为空",
                     "code": "error"
-                }))
+                })
+                )
             }
         }
         _ => Err(json!({

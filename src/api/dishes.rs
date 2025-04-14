@@ -1,14 +1,11 @@
 use crate::jwtuser::Claims;
 use crate::pool::Db;
-use ::entity::dishes::{self, Entity as Dishes};
+use ::entity::dishes::{ self, Entity as Dishes };
 use chrono::Utc;
 use rand::prelude::*;
-use rocket::serde::{
-    json::{json, Json, Value},
-    Deserialize, Serialize,
-};
-use rocket_okapi::{openapi, JsonSchema};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, Set};
+use rocket::serde::{ json::{ json, Json, Value }, Deserialize, Serialize };
+use rocket_okapi::{ openapi, JsonSchema };
+use sea_orm::{ ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, Set };
 use sea_orm_rocket::Connection;
 
 #[derive(Deserialize, Serialize, JsonSchema)]
@@ -33,7 +30,7 @@ pub struct FindPage {
 pub async fn save_dishes(
     _claims: Claims,
     db: Connection<'_, Db>,
-    data: Json<ImportDishes>,
+    data: Json<ImportDishes>
 ) -> Value {
     let db = db.into_inner();
     let result = (dishes::ActiveModel {
@@ -46,9 +43,7 @@ pub async fn save_dishes(
         status: Set("1".to_owned()), // 1: 正常 0: 停用
         create_user: Set(_claims.sub.to_owned()),
         ..Default::default()
-    })
-    .save(db)
-    .await;
+    }).save(db).await;
 
     match result {
         Ok(_) => json!({ "code": "success", "msg": "保存成功" }),
@@ -61,17 +56,15 @@ pub async fn save_dishes(
 pub async fn find_page(
     _claims: Claims,
     db: Connection<'_, Db>,
-    data: Option<Json<FindPage>>,
+    data: Option<Json<FindPage>>
 ) -> Value {
     let db = db.into_inner();
     let user_id = _claims.sub.parse::<i32>().unwrap_or(0);
-    let result = Dishes::find()
-        .filter(dishes::Column::CreateUser.eq(user_id))
-        .all(db)
-        .await;
+    let result = Dishes::find().filter(dishes::Column::CreateUser.eq(user_id)).all(db).await;
 
     match result {
-        Ok(dishes) => json!({ "code": "success", "msg": "获取成功", "data":{
+        Ok(dishes) =>
+            json!({ "code": "success", "msg": "获取成功", "data":{
             "list": dishes
         } }),
         Err(_) => json!({
@@ -95,7 +88,10 @@ pub async fn get_random_dishes(_claims: Claims, db: Connection<'_, Db>) -> Value
         rng.gen_range(0..len)
     }; // 生成一个随机数
 
-    let result = Dishes::find().offset(index as u64).limit(1).one(db).await;
+    let result = Dishes::find()
+        .offset(index as u64)
+        .limit(1)
+        .one(db).await;
     match result {
         Ok(dishes) => json!({ "code": "success", "msg": "获取成功", "data": dishes }),
         Err(_) => json!({ "code": "error", "msg": "获取失败" }),

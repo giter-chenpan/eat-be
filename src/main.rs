@@ -6,9 +6,8 @@ use rocket::{ fairing::{ self, AdHoc }, http::Status, response::status, Build, R
 use rocket_db_pools::Database as RedisDatabase;
 use rocket_okapi::{ openapi, openapi_get_routes, swagger_ui::{ make_swagger_ui, SwaggerUIConfig } };
 use sea_orm_rocket::Database;
-
 mod api;
-
+mod common;
 mod auth;
 
 mod pool;
@@ -62,7 +61,8 @@ fn rocket() -> _ {
                 api::dishes::find_page,
                 api::dishes::get_random_dishes,
                 api::file::upload_file,
-                api::file::get_image
+                api::file::get_image,
+                api::translation::handle_translation
             ]
         )
         .mount(
