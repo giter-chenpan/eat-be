@@ -21,8 +21,21 @@ struct Pronunciation {
 }
 
 #[derive(Deserialize, Serialize)]
+struct ItemExample {
+    label: String,
+    value: String,
+}
+
+#[derive(Deserialize, Serialize)]
+struct WordTranslation {
+    word: String,
+    examples: Vec<ItemExample>,
+}
+
+#[derive(Deserialize, Serialize)]
 struct Item {
     title: String,
+    translation: Vec<WordTranslation>,
     word_type_enum: Option<WordType>,
     pronunciation: Vec<Pronunciation>,
 }
@@ -61,11 +74,46 @@ pub async fn handle_translation(_claims: Claims, data: Json<Translation>) -> Val
             title: title.inner_html(),
             word_type_enum: mapping_word_type(&word_type.inner_html()),
             pronunciation: get_pronunciation(&i, &init_url),
+            translation: get_translation(&i),
         };
         res.push(item);
     }
 
     Rep::<Option<Vec<Item>>>::new(Success.self_code(), "成功", Some(Some(res)))
+}
+
+fn get_translation(i: &ElementRef<'_>) -> Vec<WordTranslation> {
+    let trans_selector = Selector::parse(".def-body.ddef_b").unwrap();
+    let word_selector = Selector::parse(".trans.dtrans.dtrans-se").unwrap();
+    let mut res: Vec<WordTranslation> = vec![];
+
+    fn get_examples(i: &ElementRef<'_>) -> Vec<ItemExample> {
+        let mut inner_res: Vec<ItemExample> = vec![];
+        let example_selector = Selector::parse(".examp.dexamp").unwrap();
+        for example in i.select(&example_selector) {
+            let label_selector = Selector::parse(".eg.deg").unwrap();
+            let value_selector = Selector::parse(".trans.dtrans.dtrans-se.hdb.break-cj").unwrap();
+            inner_res.push(ItemExample {
+                label: example
+                    .select(&label_selector)
+                    .next()
+                    .unwrap()
+                    .text()
+                    .collect::<Vec<_>>()
+                    .join(""),
+                value: example.select(&value_selector).next().unwrap().inner_html(),
+            });
+        }
+        inner_res
+    }
+
+    for trans in i.select(&trans_selector) {
+        res.push(WordTranslation {
+            word: trans.select(&word_selector).next().unwrap().text().collect::<Vec<_>>().join(""),
+            examples: get_examples(&trans),
+        });
+    }
+    res
 }
 
 fn get_pronunciation(i: &ElementRef<'_>, url: &str) -> Vec<Pronunciation> {
