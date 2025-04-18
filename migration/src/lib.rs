@@ -11,6 +11,7 @@ mod m20250416_064621_create_table;
 mod m20250417_065651_create_words_table;
 mod m20250417_072954_update_words_table;
 mod m20250417_073805_update_words_table;
+mod m20250418_090001_update_words_table_id;
 
 pub struct Migrator;
 
@@ -29,6 +30,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250417_065651_create_words_table::Migration),
             Box::new(m20250417_072954_update_words_table::Migration),
             Box::new(m20250417_073805_update_words_table::Migration),
+            Box::new(m20250418_090001_update_words_table_id::Migration),
         ]
     }
 }

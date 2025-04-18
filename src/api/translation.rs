@@ -1,12 +1,12 @@
 use crate::jwtuser::Claims;
 use rocket_okapi::{ openapi, JsonSchema };
-use rocket::serde::{ json::{ serde_json, Json, Value }, Deserialize, Serialize };
+use rocket::serde::{ json::{ serde_json, Json }, Deserialize, Serialize };
 use reqwest;
 use crate::pool::Db;
+use uuid::{ ContextV7, Timestamp, Uuid };
 use rocket::Config;
 use scraper::{ ElementRef, Html, Selector };
-use crate::common::data_structure::*;
-use crate::common::enums::Code::*;
+use crate::common::{ data_structure::*, enums::Code::* };
 use sea_orm_rocket::Connection;
 use sea_orm::{ ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set };
 use ::entity::words::{ self, Entity as Words };
@@ -17,27 +17,27 @@ pub struct Translation {
     words: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, JsonSchema)]
 struct Pronunciation {
     lang: String,
     source: String,
     pron: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, JsonSchema)]
 struct ItemExample {
     label: String,
     value: Option<String>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, JsonSchema)]
 struct WordTranslation {
     word: Option<String>,
     examples: Vec<ItemExample>,
 }
 
-#[derive(Deserialize, Serialize)]
-struct Item {
+#[derive(Deserialize, Serialize, JsonSchema)]
+pub struct Item {
     title: String,
     translation: Vec<WordTranslation>,
     word_type_enum: Option<WordType>,
@@ -49,22 +49,37 @@ pub async fn handle_translation(
     _claims: Claims,
     db: Connection<'_, Db>,
     data: Json<Translation>
-) -> Value {
+) -> Json<Rep<Option<Vec<Item>>>> {
     let db = db.into_inner();
     let result = Words::find().filter(words::Column::Word.eq(&data.words)).one(db).await;
-
     let trans = match result {
         Ok(Some(trans)) => trans.translation,
-        _ => "".to_string(),
+        Ok(None) => {
+            println!("result none");
+            "".to_string()
+        }
+        Err(error) => {
+            println!("translation error: {}", error);
+            "".to_string()
+        }
     };
-    let translation = serde_json::from_str(trans.as_str());
 
-    if translation.is_ok() {
-        return Rep::<Option<Option<Vec<Item>>>>::new(
-            Success.self_code(),
-            "成功",
-            Some(Some(translation.unwrap()))
-        );
+    if !trans.is_empty() {
+        let translation = serde_json::from_str(trans.as_str());
+
+        match translation {
+            Ok(translation) => {
+                return Rep::<Option<Vec<Item>>>::new(
+                    Success.self_code(),
+                    "成功",
+                    Some(translation)
+                );
+            }
+            Err(error) => {
+                println!("translation error: {}", error);
+                return Rep::<Option<Vec<Item>>>::new(BusinessError.self_code(), "解析错误", None);
+            }
+        }
     }
 
     let init_url = Config::figment().extract_inner::<String>("translation_url").unwrap();
@@ -88,18 +103,18 @@ pub async fn handle_translation(
     if res.is_empty() {
         return Rep::<Option<Vec<Item>>>::new(Success.self_code(), "成功", Some(Some(vec![])));
     }
-
+    let ts = Timestamp::now(ContextV7::new());
     let save_rep = (words::ActiveModel {
+        id: Set(Uuid::new_v7(ts).to_string()),
         word: Set(data.words.to_string()),
         translation: Set(serde_json::to_string(&res).unwrap()),
         create_user: Set(_claims.sub.to_owned()),
-        ..Default::default()
-    }).save(db).await;
+    }).insert(db).await;
 
     match save_rep {
         Ok(_) => Rep::<Option<Vec<Item>>>::new(Success.self_code(), "成功", Some(Some(res))),
         Err(error) => {
-            println!("{}", error);
+            println!("save error: {}", error);
             Rep::<Option<Vec<Item>>>::new(BusinessError.self_code(), &format!("数据库错误"), None)
         }
     }
@@ -190,8 +205,8 @@ fn get_pronunciation(i: &ElementRef<'_>, url: &str) -> Vec<Pronunciation> {
     res
 }
 
-#[derive(Deserialize, Serialize)]
-struct WordsRepItem {
+#[derive(Deserialize, Serialize, JsonSchema)]
+pub struct WordsRepItem {
     beta: bool,
     url: String,
     word: String,
@@ -199,7 +214,10 @@ struct WordsRepItem {
 
 #[openapi(tag = "translation")]
 #[post("/api/translation/get_words", data = "<data>", format = "json")]
-pub async fn get_words(_claims: Claims, data: Json<Translation>) -> Value {
+pub async fn get_words(
+    _claims: Claims,
+    data: Json<Translation>
+) -> Json<Rep<Option<Vec<WordsRepItem>>>> {
     let init_url = Config::figment().extract_inner::<String>("translation_url").unwrap();
     let mut url = init_url.clone();
 
@@ -221,7 +239,7 @@ pub async fn get_words(_claims: Claims, data: Json<Translation>) -> Value {
                 &data.words;
         }
         _ => {
-            return Rep::<Option<Vec<Item>>>::new(BadRequest.self_code(), "参数错误", None);
+            return Rep::<Option<Vec<WordsRepItem>>>::new(BadRequest.self_code(), "参数错误", None);
         }
     }
 
@@ -237,7 +255,7 @@ pub async fn get_words(_claims: Claims, data: Json<Translation>) -> Value {
         }
         Err(error) => {
             println!("{}", error);
-            Rep::<Option<Vec<Item>>>::new(BusinessError.self_code(), "查询错误", None)
+            Rep::<Option<Vec<WordsRepItem>>>::new(BusinessError.self_code(), "查询错误", None)
         }
     }
 }

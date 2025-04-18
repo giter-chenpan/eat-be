@@ -1,6 +1,6 @@
-use rocket::serde::{ json::{ json, Value }, Deserialize, Serialize };
-
-#[derive(Deserialize, Serialize)]
+use rocket::serde::{ json::Json, Deserialize, Serialize };
+use rocket_okapi::JsonSchema;
+#[derive(Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Rep<T> {
     pub code: i32,
@@ -8,8 +8,8 @@ pub struct Rep<T> {
     pub data: Option<T>,
 }
 impl<T: Serialize> Rep<T> {
-    pub fn new(code: i32, msg: &str, data: Option<T>) -> Value {
-        json!(Self {
+    pub fn new(code: i32, msg: &str, data: Option<T>) -> Json<Rep<T>> {
+        Json(Self {
             code,
             msg: msg.to_string(),
             data,
@@ -17,7 +17,7 @@ impl<T: Serialize> Rep<T> {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, JsonSchema)]
 pub struct WordType {
     name: String,
     description: String,
