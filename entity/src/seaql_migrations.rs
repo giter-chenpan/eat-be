@@ -4,13 +4,11 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-#[sea_orm(table_name = "user_select")]
+#[sea_orm(table_name = "seaql_migrations")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
-    pub user_id: String,
-    pub dish_id: String,
-    pub create_time: DateTimeUtc,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub version: String,
+    pub applied_at: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

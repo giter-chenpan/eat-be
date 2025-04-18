@@ -1,6 +1,7 @@
 ## 生成migration文件
 ```
-# E.g. to generate 'migration/src/m20220101_000001_create_table.rs shown below
+# E.g. to generate 'migration/src/m20220101_000001_create_table.rs shown below  
+
 sea-orm-cli migrate generate create_table  //Generate a new migration file
 sea-orm-cli migrate up   //Apply all pending migrations
 
@@ -8,6 +9,7 @@ sea-orm-cli migrate up   //Apply all pending migrations
 ## 数据库生成entity
 [文档](https://www.sea-ql.org/SeaORM/docs/generate-entity/sea-orm-cli/)
 ```
-# Show how to use `generate entity` subcommand
-sea-orm-cli generate entity -u mysql://{xxxx} -o {dir} --with-serde both --ignore-tables dishes_images
+# Show how to use `generate entity` subcommand  
+
+sea-orm-cli generate entity -u mysql://{user:password@host:port/database} -o ./entity/src --with-serde both --ignore-tables dishes_images
 ```

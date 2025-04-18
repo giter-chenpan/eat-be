@@ -62,7 +62,8 @@ fn rocket() -> _ {
                 api::dishes::get_random_dishes,
                 api::file::upload_file,
                 api::file::get_image,
-                api::translation::handle_translation
+                api::translation::handle_translation,
+                api::translation::get_words
             ]
         )
         .mount(

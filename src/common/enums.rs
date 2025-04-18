@@ -1,6 +1,7 @@
 pub enum Code {
     Success,
     BadRequest,
+    BusinessError,
 }
 
 impl Code {
@@ -8,6 +9,7 @@ impl Code {
         match self {
             Code::Success => 200,
             Code::BadRequest => 400,
+            Code::BusinessError => 500,
         }
     }
 }

@@ -1,11 +1,15 @@
 use crate::jwtuser::Claims;
 use rocket_okapi::{ openapi, JsonSchema };
-use rocket::serde::{ json::{ Json, Value }, Deserialize, Serialize };
+use rocket::serde::{ json::{ serde_json, Json, Value }, Deserialize, Serialize };
 use reqwest;
+use crate::pool::Db;
 use rocket::Config;
 use scraper::{ ElementRef, Html, Selector };
 use crate::common::data_structure::*;
 use crate::common::enums::Code::*;
+use sea_orm_rocket::Connection;
+use sea_orm::{ ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set };
+use ::entity::words::{ self, Entity as Words };
 
 #[derive(Deserialize, Serialize, JsonSchema)]
 pub struct Translation {
@@ -23,12 +27,12 @@ struct Pronunciation {
 #[derive(Deserialize, Serialize)]
 struct ItemExample {
     label: String,
-    value: String,
+    value: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
 struct WordTranslation {
-    word: String,
+    word: Option<String>,
     examples: Vec<ItemExample>,
 }
 
@@ -39,10 +43,30 @@ struct Item {
     word_type_enum: Option<WordType>,
     pronunciation: Vec<Pronunciation>,
 }
-
-#[openapi(tag = "translation")]
+#[openapi(tag = "translation", ignore = "db")]
 #[post("/api/translation/words", data = "<data>", format = "json")]
-pub async fn handle_translation(_claims: Claims, data: Json<Translation>) -> Value {
+pub async fn handle_translation(
+    _claims: Claims,
+    db: Connection<'_, Db>,
+    data: Json<Translation>
+) -> Value {
+    let db = db.into_inner();
+    let result = Words::find().filter(words::Column::Word.eq(&data.words)).one(db).await;
+
+    let trans = match result {
+        Ok(Some(trans)) => trans.translation,
+        _ => "".to_string(),
+    };
+    let translation = serde_json::from_str(trans.as_str());
+
+    if translation.is_ok() {
+        return Rep::<Option<Option<Vec<Item>>>>::new(
+            Success.self_code(),
+            "成功",
+            Some(Some(translation.unwrap()))
+        );
+    }
+
     let init_url = Config::figment().extract_inner::<String>("translation_url").unwrap();
     let mut url = init_url.clone();
     match data.destination.as_str() {
@@ -58,8 +82,32 @@ pub async fn handle_translation(_claims: Claims, data: Json<Translation>) -> Val
     }
     let html = reqwest::get(url).await.unwrap().text().await.unwrap();
 
-    let document = Html::parse_document(&html);
+    // 在同步上下文中处理 HTML 解析
+    let res = parse_html(&html, &init_url);
 
+    if res.is_empty() {
+        return Rep::<Option<Vec<Item>>>::new(Success.self_code(), "成功", Some(Some(vec![])));
+    }
+
+    let save_rep = (words::ActiveModel {
+        word: Set(data.words.to_string()),
+        translation: Set(serde_json::to_string(&res).unwrap()),
+        create_user: Set(_claims.sub.to_owned()),
+        ..Default::default()
+    }).save(db).await;
+
+    match save_rep {
+        Ok(_) => Rep::<Option<Vec<Item>>>::new(Success.self_code(), "成功", Some(Some(res))),
+        Err(error) => {
+            println!("{}", error);
+            Rep::<Option<Vec<Item>>>::new(BusinessError.self_code(), &format!("数据库错误"), None)
+        }
+    }
+}
+
+// 同步函数处理 HTML 解析
+fn parse_html(html: &str, init_url: &str) -> Vec<Item> {
+    let document = Html::parse_document(html);
     let origin_selector = Selector::parse(".pr.entry-body__el").unwrap();
     let title_selector = Selector::parse(".hw.dhw").unwrap();
     let type_selector = Selector::parse(".pos.dpos").unwrap();
@@ -73,13 +121,12 @@ pub async fn handle_translation(_claims: Claims, data: Json<Translation>) -> Val
         let item = Item {
             title: title.inner_html(),
             word_type_enum: mapping_word_type(&word_type.inner_html()),
-            pronunciation: get_pronunciation(&i, &init_url),
+            pronunciation: get_pronunciation(&i, init_url),
             translation: get_translation(&i),
         };
         res.push(item);
     }
-
-    Rep::<Option<Vec<Item>>>::new(Success.self_code(), "成功", Some(Some(res)))
+    res
 }
 
 fn get_translation(i: &ElementRef<'_>) -> Vec<WordTranslation> {
@@ -101,15 +148,20 @@ fn get_translation(i: &ElementRef<'_>) -> Vec<WordTranslation> {
                     .text()
                     .collect::<Vec<_>>()
                     .join(""),
-                value: example.select(&value_selector).next().unwrap().inner_html(),
+                value: example
+                    .select(&value_selector)
+                    .next()
+                    .map_or(None, |s| Some(s.inner_html())),
             });
         }
         inner_res
     }
-
     for trans in i.select(&trans_selector) {
         res.push(WordTranslation {
-            word: trans.select(&word_selector).next().unwrap().text().collect::<Vec<_>>().join(""),
+            word: trans
+                .select(&word_selector)
+                .next()
+                .map_or(None, |s| Some(s.text().collect::<Vec<_>>().join(""))),
             examples: get_examples(&trans),
         });
     }
@@ -136,4 +188,56 @@ fn get_pronunciation(i: &ElementRef<'_>, url: &str) -> Vec<Pronunciation> {
         });
     }
     res
+}
+
+#[derive(Deserialize, Serialize)]
+struct WordsRepItem {
+    beta: bool,
+    url: String,
+    word: String,
+}
+
+#[openapi(tag = "translation")]
+#[post("/api/translation/get_words", data = "<data>", format = "json")]
+pub async fn get_words(_claims: Claims, data: Json<Translation>) -> Value {
+    let init_url = Config::figment().extract_inner::<String>("translation_url").unwrap();
+    let mut url = init_url.clone();
+
+    match data.destination.as_str() {
+        "zh" => {
+            url =
+                url +
+                "/autocomplete/amp?dataset=english-chinese-simplified&__amp_source_origin=" +
+                &init_url +
+                "&q=" +
+                &data.words;
+        }
+        "en" => {
+            url =
+                url +
+                "/autocomplete/amp?dataset=chinese-simplified-english&__amp_source_origin=" +
+                &init_url +
+                "&q=" +
+                &data.words;
+        }
+        _ => {
+            return Rep::<Option<Vec<Item>>>::new(BadRequest.self_code(), "参数错误", None);
+        }
+    }
+
+    let words_rep = reqwest::get(url).await.unwrap().json::<Vec<WordsRepItem>>().await;
+
+    match words_rep {
+        Ok(words_rep) => {
+            Rep::<Option<Vec<WordsRepItem>>>::new(
+                Success.self_code(),
+                "成功",
+                Some(Some(words_rep))
+            )
+        }
+        Err(error) => {
+            println!("{}", error);
+            Rep::<Option<Vec<Item>>>::new(BusinessError.self_code(), "查询错误", None)
+        }
+    }
 }
