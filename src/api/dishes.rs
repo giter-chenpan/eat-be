@@ -52,11 +52,11 @@ pub async fn save_dishes(
 }
 
 #[openapi(tag = "dishes", ignore = "db")]
-#[post("/api/dishes/findpage", data = "<data>")]
+#[post("/api/dishes/findpage")]
 pub async fn find_page(
     _claims: Claims,
     db: Connection<'_, Db>,
-    data: Option<Json<FindPage>>
+    // data: Option<Json<FindPage>>
 ) -> Value {
     let db = db.into_inner();
     let user_id = _claims.sub.parse::<i32>().unwrap_or(0);

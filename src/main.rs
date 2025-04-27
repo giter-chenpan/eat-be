@@ -36,7 +36,7 @@ fn default_catcher(status: Status, req: &Request<'_>) -> status::Custom<String> 
 async fn run_migrations(rocket: Rocket<Build>) -> fairing::Result {
     let conn = &Db::fetch(&rocket).unwrap().conn;
     //初次执行用 fresh()方法
-    let _ = migration::Migrator::install(conn).await;
+    let _ = migration::Migrator::up(conn, None).await;
     Ok(rocket)
 }
 
