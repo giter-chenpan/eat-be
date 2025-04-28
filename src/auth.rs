@@ -47,7 +47,7 @@ pub async fn login(
             }
             match rsdb.get::<&str, String>(&id).await {
                 Ok(redis_token) => {
-                    json!({ "msg": "登陆成功！", "code": "success", "token": redis_token })
+                    json!({ "msg": "登陆成功！", "code": "success", "data": redis_token })
                 }
                 Err(_) => {
                     let new_token = encode_token(&id);
@@ -61,7 +61,7 @@ pub async fn login(
                             if let Err(e) = rsdb.expire::<&str, u64>(&id, 30 * 24 * 60 * 60).await {
                                 error!("Redis expire error: {:?}", e);
                             }
-                            json!({ "msg": "登陆成功！", "code": "success", "token": new_token })
+                            json!({ "msg": "登陆成功！", "code": "success", "data": new_token })
                         }
                         Err(e) => {
                             error!("Redis set error: {:?}", e);
