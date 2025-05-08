@@ -9,6 +9,7 @@ use sea_orm_rocket::Database;
 mod api;
 mod common;
 mod auth;
+mod config;
 
 mod pool;
 
@@ -63,7 +64,8 @@ fn rocket() -> _ {
                 api::file::upload_file,
                 api::file::get_image,
                 api::translation::handle_translation,
-                api::translation::get_words
+                api::translation::get_words,
+                api::translation::find_page
             ]
         )
         .mount(

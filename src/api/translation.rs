@@ -4,11 +4,11 @@ use rocket::serde::{ json::{ serde_json, Json }, Deserialize, Serialize };
 use reqwest;
 use crate::pool::Db;
 use uuid::{ ContextV7, Timestamp, Uuid };
-use rocket::Config;
+use  crate::config::get_config;
 use scraper::{ ElementRef, Html, Selector };
 use crate::common::{ data_structure::*, enums::Code::* };
 use sea_orm_rocket::Connection;
-use sea_orm::{ ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set };
+use sea_orm::{ ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set };
 use ::entity::words::{ self, Entity as Words };
 
 #[derive(Deserialize, Serialize, JsonSchema)]
@@ -82,7 +82,7 @@ pub async fn handle_translation(
         }
     }
 
-    let init_url = Config::figment().extract_inner::<String>("translation_url").unwrap();
+    let init_url = get_config().translation_url.clone();
     let mut url = init_url.clone();
     match data.destination.as_str() {
         "en" => {
@@ -213,12 +213,12 @@ pub struct WordsRepItem {
 }
 
 #[openapi(tag = "translation")]
-#[post("/api/translation/get_words", data = "<data>", format = "json")]
+#[post("/api/translation/getWords", data = "<data>", format = "json")]
 pub async fn get_words(
     _claims: Claims,
     data: Json<Translation>
 ) -> Json<Rep<Option<Vec<WordsRepItem>>>> {
-    let init_url = Config::figment().extract_inner::<String>("translation_url").unwrap();
+    let init_url = get_config().translation_url.clone();
     let mut url = init_url.clone();
 
     match data.destination.as_str() {
@@ -258,4 +258,53 @@ pub async fn get_words(
             Rep::<Option<Vec<WordsRepItem>>>::new(BusinessError.self_code(), "查询错误", None)
         }
     }
+}
+
+#[derive(Deserialize, Serialize, JsonSchema)]
+pub struct FindPageRepItem {
+    id: String,
+    word: String,
+    translations: Vec<Item>,
+    create_user: String,
+}
+
+#[derive(Deserialize, Serialize, JsonSchema)]
+pub struct FindPageRep {
+    page: u64,
+    total: u64,
+    list: Vec<FindPageRepItem>,
+}
+
+
+#[openapi(tag = "translation", ignore = "db")]
+#[post("/api/translation/findPage", data = "<data>", format = "json")]
+pub async fn find_page(
+    _claims: Claims,
+    db: Connection<'_, Db>,
+    data: Json<FindPage>
+) -> Json<Rep<FindPageRep>> {
+    let db = db.into_inner();
+    let  result = Words::find().paginate(db, data.page_size);
+    let current_page = data.page - 1;
+
+    let result_list = result.fetch_page(current_page).await.unwrap().into_iter().map(|item| FindPageRepItem {
+        id: item.id,
+        word: item.word,
+        translations: serde_json::from_str(&item.translation).unwrap(),
+        create_user: item.create_user,
+    }).collect::<Vec<FindPageRepItem>>();
+
+    let rep = FindPageRep {
+        page: current_page,
+        total: match result.num_items().await {
+            Ok(total) => total,
+            Err(error) => {
+                println!("{}", error);
+                return Rep::<FindPageRep>::new(BusinessError.self_code(), "查询错误", None);
+            }
+        },
+        list: result_list,
+    };
+
+    Rep::<FindPageRep>::new(Success.self_code(), "成功", Some(rep))
 }
