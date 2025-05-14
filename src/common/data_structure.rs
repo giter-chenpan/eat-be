@@ -17,14 +17,6 @@ impl<T: Serialize> Rep<T> {
     }
 }
 
-/// page structure
-#[derive(Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct FindPage {
-    pub page: u64,
-    pub page_size: u64,
-}
-
 
 /// word type mapping
 #[derive(Deserialize, Serialize, JsonSchema)]

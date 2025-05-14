@@ -87,6 +87,7 @@ pub async fn handle_translation(
     match data.destination.as_str() {
         "en" => {
             url = url + "/dictionary/chinese-simplified-english/" + &data.words;
+           
         }
         "zh" => {
             url = url + "/dictionary/english-chinese-simplified/" + &data.words;
@@ -109,6 +110,7 @@ pub async fn handle_translation(
         word: Set(data.words.to_string()),
         translation: Set(serde_json::to_string(&res).unwrap()),
         create_user: Set(_claims.sub.to_owned()),
+        r#type: Set(data.destination.to_string()),
     }).insert(db).await;
 
     match save_rep {
@@ -275,16 +277,24 @@ pub struct FindPageRep {
     list: Vec<FindPageRepItem>,
 }
 
+#[derive(Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FindPageParams {
+    pub page: u64,
+    pub page_size: u64,
+    pub translation_type: String,
+}
+
 
 #[openapi(tag = "translation", ignore = "db")]
 #[post("/api/translation/findPage", data = "<data>", format = "json")]
 pub async fn find_page(
     _claims: Claims,
     db: Connection<'_, Db>,
-    data: Json<FindPage>
+    data: Json<FindPageParams>
 ) -> Json<Rep<FindPageRep>> {
     let db = db.into_inner();
-    let  result = Words::find().paginate(db, data.page_size);
+    let  result = Words::find().filter(words::Column::Type.eq(&data.translation_type)).paginate(db, data.page_size);
     let current_page = data.page - 1;
 
     let result_list = result.fetch_page(current_page).await.unwrap().into_iter().map(|item| FindPageRepItem {
