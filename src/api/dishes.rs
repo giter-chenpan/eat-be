@@ -80,7 +80,7 @@ pub async fn get_random_dishes(_claims: Claims, db: Connection<'_, Db>) -> Value
     let db = db.into_inner();
     let len = Dishes::find().all(db).await.unwrap().len();
     if len <= 0 {
-        return json!({ "code": "error", "msg": "空数据" });
+        return json!({ "code": "error", "msg": "暂无数据，请到【我的-菜谱】添加菜谱" });
     }
 
     let index = {

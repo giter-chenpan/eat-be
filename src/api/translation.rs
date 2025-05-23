@@ -305,7 +305,7 @@ pub async fn find_page(
     }).collect::<Vec<FindPageRepItem>>();
 
     let rep = FindPageRep {
-        page: current_page,
+        page: data.page,
         total: match result.num_items().await {
             Ok(total) => total,
             Err(error) => {
