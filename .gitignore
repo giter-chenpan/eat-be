@@ -1,4 +1,4 @@
 /target
 Rocket.toml
-eatbe.tar.gz
+eatbe*.tar.gz
 Cargo.lock
