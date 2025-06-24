@@ -25,6 +25,7 @@ rand = "0.8.5"
 reqwest = { version = "0.12.15", features = ["json"] }
 scraper = "0.23.1"
 openssl = { version = "0.10", features = ["vendored"] }
+cargo-watch = "8.5.3"
 
 
 [dependencies.uuid]
