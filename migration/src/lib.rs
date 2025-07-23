@@ -17,6 +17,10 @@ mod m20250513_082952_create_table;
 mod m20250523_031934_update_table_words_id;
 mod m20250523_032419_update_table_words_id;
 mod m20250523_032800_update_table_words_transtion;
+mod m20250718_073733_update_user_table;
+mod m20250723_105707_update_user_table_salt;
+mod m20250723_110308_update_user_table_salt;
+mod m20250723_110634_delete_user_table_salt;
 
 pub struct Migrator;
 
@@ -41,6 +45,10 @@ impl MigratorTrait for Migrator {
             Box::new(m20250523_031934_update_table_words_id::Migration),
             Box::new(m20250523_032419_update_table_words_id::Migration),
             Box::new(m20250523_032800_update_table_words_transtion::Migration),
+            Box::new(m20250718_073733_update_user_table::Migration),
+            Box::new(m20250723_105707_update_user_table_salt::Migration),
+            Box::new(m20250723_110308_update_user_table_salt::Migration),
+            Box::new(m20250723_110634_delete_user_table_salt::Migration),
         ]
     }
 }

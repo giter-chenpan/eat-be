@@ -16,6 +16,7 @@ use schemars::JsonSchema;
 use sea_orm::*;
 use sea_orm_rocket::Connection;
 use rocket_db_pools::Connection as RedisConnection;
+use bcrypt::{DEFAULT_COST, hash, verify};
 
 use crate::pool::{ Db, RedisPool };
 use crate::jwtuser::{ encode_token, Claims, SECRET };
@@ -38,11 +39,13 @@ pub async fn login(
 ) -> Value {
     let db = conn.into_inner();
 
-    match find_user_by_name(db, input.name.to_string()).await {
+    match find_user_by_name(db, input.name.to_string()).await { 
         Ok(Some(user)) => {
             let id = user.id.to_string();
-            let pwd = user.password.to_string();
-            if pwd != input.pwd.to_string() {
+             
+             let match_pwd = verify(input.pwd, &user.password).unwrap();
+
+            if !match_pwd {
                 return json!({ "msg": "密码错误", "code": "business_error" });
             }
             match rsdb.get::<&str, String>(&id).await {
@@ -67,7 +70,7 @@ pub async fn login(
                             error!("Redis set error: {:?}", e);
                             json!({ "msg": "服务器错误", "code": "server_error" })
                         }
-                    }
+                    } 
                 }
             }
         }
@@ -121,9 +124,11 @@ async fn find_user_by_name(db: &DbConn, name: String) -> Result<Option<user::Mod
 
 async fn insert_user(db: &DbConn, data: Json<Params<'_>>) -> Result<user::ActiveModel, DbErr> {
     let time = Local::now();
-    (user::ActiveModel {
+    let hashed = hash(data.pwd, DEFAULT_COST).unwrap();
+
+    (user::ActiveModel { 
         name: Set(data.name.to_owned()),
-        password: Set(data.pwd.to_owned()),
+        password: Set(hashed.to_string()),
         create_time: Set(time.naive_utc()),
         ..Default::default()
     }).save(db).await
