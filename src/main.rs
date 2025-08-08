@@ -2,18 +2,26 @@
 extern crate rocket;
 
 use migration::MigratorTrait;
-use rocket::{ fairing::{ self, AdHoc }, http::Status, response::status, Build, Request, Rocket };
+use rocket::{
+    fairing::{self, AdHoc},
+    http::Status,
+    response::status,
+    Build, Request, Rocket,
+};
 use rocket_db_pools::Database as RedisDatabase;
-use rocket_okapi::{ openapi, openapi_get_routes, swagger_ui::{ make_swagger_ui, SwaggerUIConfig } };
+use rocket_okapi::{
+    openapi, openapi_get_routes,
+    swagger_ui::{make_swagger_ui, SwaggerUIConfig},
+};
 use sea_orm_rocket::Database;
 mod api;
-mod common;
 mod auth;
+mod common;
 mod config;
 
 mod pool;
 
-use pool::{ Db, RedisPool };
+use pool::{Db, RedisPool};
 
 mod jwtuser;
 
@@ -43,8 +51,7 @@ async fn run_migrations(rocket: Rocket<Build>) -> fairing::Result {
 
 #[launch]
 fn rocket() -> _ {
-    rocket
-        ::build()
+    rocket::build()
         .attach(RedisPool::init())
         .attach(Db::init())
         .attach(AdHoc::try_on_ignite("Migrations", run_migrations))
@@ -53,6 +60,7 @@ fn rocket() -> _ {
             openapi_get_routes![
                 home,
                 auth::login,
+                auth::logout,
                 auth::register,
                 auth::get_user_info,
                 api::category::import_category,
@@ -66,7 +74,7 @@ fn rocket() -> _ {
                 api::translation::handle_translation,
                 api::translation::get_words,
                 api::translation::find_page
-            ]
+            ],
         )
         .mount(
             "/swagger-ui/",
@@ -74,8 +82,8 @@ fn rocket() -> _ {
                 &(SwaggerUIConfig {
                     url: "/openapi.json".to_string(),
                     ..Default::default()
-                })
-            )
+                }),
+            ),
         )
         .register("/", catchers![not_found, default_catcher])
 }
