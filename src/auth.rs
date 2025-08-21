@@ -89,7 +89,7 @@ pub async fn login(
     }
 }
 
-#[openapi(tag = "auth", ignore = "rsdb")]
+#[openapi(tag = "auth", ignore = "rsdb", ignore = "_claims")]
 #[post("/api/logout")]
 pub async fn logout(mut rsdb: RedisConnection<RedisPool>, _claims: Claims) -> Json<Rep<()>> {
     let id = _claims.sub.parse::<i32>().unwrap();
@@ -122,7 +122,7 @@ pub async fn register(conn: Connection<'_, Db>, input: Json<Params<'_>>) -> Valu
     }
 }
 
-#[openapi(tag = "auth", ignore = "conn")]
+#[openapi(tag = "auth", ignore = "conn", ignore = "_claims")]
 #[get("/api/getuserinfo")]
 pub async fn get_user_info(_claims: Claims, conn: Connection<'_, Db>) -> Value {
     let db = conn.into_inner();

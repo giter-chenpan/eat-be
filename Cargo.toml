@@ -12,8 +12,12 @@ members = [".", "entity", "migration", "entity"]
 rocket = { version = "0.5.0", features = ["secrets", "tls", "json"] }
 sea-orm-rocket = "0.5.4"
 serde = { version = "1.0", features = ["derive"] }
-async-trait = { version = "0.1" } 
-sea-orm = { version = "0.12.15", features = ["sqlx-mysql", "runtime-tokio-rustls", "with-uuid"]}
+async-trait = { version = "0.1" }
+sea-orm = { version = "0.12.15", features = [
+    "sqlx-mysql",
+    "runtime-tokio-rustls",
+    "with-uuid",
+] }
 migration = { path = "migration" }
 entity = { path = "entity" }
 jsonwebtoken = "9.3.0"
@@ -32,7 +36,7 @@ bcrypt = "0.17.0"
 version = "1.8.0"
 features = ["v7", "v4"]
 
-[dependencies.sqlx] 
+[dependencies.sqlx]
 version = "0.7"
 default-features = false
 features = ["macros", "migrate", "mysql"]
@@ -40,4 +44,3 @@ features = ["macros", "migrate", "mysql"]
 [dependencies.rocket_db_pools]
 version = "0.1.0"
 features = ["deadpool_redis", "sqlx_mysql"]
-

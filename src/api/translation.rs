@@ -1,15 +1,18 @@
+use crate::common::{data_structure::*, enums::Code::*};
+use crate::config::get_config;
 use crate::jwtuser::Claims;
-use rocket_okapi::{ openapi, JsonSchema };
-use rocket::serde::{ json::{ serde_json, Json }, Deserialize, Serialize };
-use reqwest;
 use crate::pool::Db;
-use uuid::{ ContextV7, Timestamp, Uuid };
-use  crate::config::get_config;
-use scraper::{ ElementRef, Html, Selector };
-use crate::common::{ data_structure::*, enums::Code::* };
+use ::entity::words::{self, Entity as Words};
+use reqwest;
+use rocket::serde::{
+    json::{serde_json, Json},
+    Deserialize, Serialize,
+};
+use rocket_okapi::{openapi, JsonSchema};
+use scraper::{ElementRef, Html, Selector};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
 use sea_orm_rocket::Connection;
-use sea_orm::{ ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set };
-use ::entity::words::{ self, Entity as Words };
+use uuid::{ContextV7, Timestamp, Uuid};
 
 #[derive(Deserialize, Serialize, JsonSchema)]
 pub struct Translation {
@@ -43,15 +46,18 @@ pub struct Item {
     word_type_enum: Option<WordType>,
     pronunciation: Vec<Pronunciation>,
 }
-#[openapi(tag = "translation", ignore = "db")]
+#[openapi(tag = "translation", ignore = "db", ignore = "_claims")]
 #[post("/api/translation/words", data = "<data>", format = "json")]
 pub async fn handle_translation(
     _claims: Claims,
     db: Connection<'_, Db>,
-    data: Json<Translation>
+    data: Json<Translation>,
 ) -> Json<Rep<Option<Vec<Item>>>> {
     let db = db.into_inner();
-    let result = Words::find().filter(words::Column::Word.eq(&data.words)).one(db).await;
+    let result = Words::find()
+        .filter(words::Column::Word.eq(&data.words))
+        .one(db)
+        .await;
     let trans = match result {
         Ok(Some(trans)) => trans.translation,
         Ok(None) => {
@@ -72,7 +78,7 @@ pub async fn handle_translation(
                 return Rep::<Option<Vec<Item>>>::new(
                     Success.self_code(),
                     "成功",
-                    Some(translation)
+                    Some(translation),
                 );
             }
             Err(error) => {
@@ -87,7 +93,6 @@ pub async fn handle_translation(
     match data.destination.as_str() {
         "en" => {
             url = url + "/dictionary/chinese-simplified-english/" + &data.words;
-           
         }
         "zh" => {
             url = url + "/dictionary/english-chinese-simplified/" + &data.words;
@@ -111,7 +116,9 @@ pub async fn handle_translation(
         translation: Set(serde_json::to_string(&res).unwrap()),
         create_user: Set(_claims.sub.to_owned()),
         r#type: Set(data.destination.to_string()),
-    }).insert(db).await;
+    })
+    .insert(db)
+    .await;
 
     match save_rep {
         Ok(_) => Rep::<Option<Vec<Item>>>::new(Success.self_code(), "成功", Some(Some(res))),
@@ -214,47 +221,47 @@ pub struct WordsRepItem {
     word: String,
 }
 
-#[openapi(tag = "translation")]
+#[openapi(tag = "translation", ignore = "_claims")]
 #[post("/api/translation/getWords", data = "<data>", format = "json")]
 pub async fn get_words(
     _claims: Claims,
-    data: Json<Translation>
+    data: Json<Translation>,
 ) -> Json<Rep<Option<Vec<WordsRepItem>>>> {
     let init_url = get_config().translation_url.clone();
     let mut url = init_url.clone();
 
     match data.destination.as_str() {
         "zh" => {
-            url =
-                url +
-                "/autocomplete/amp?dataset=english-chinese-simplified&__amp_source_origin=" +
-                &init_url +
-                "&q=" +
-                &data.words;
+            url = url
+                + "/autocomplete/amp?dataset=english-chinese-simplified&__amp_source_origin="
+                + &init_url
+                + "&q="
+                + &data.words;
         }
         "en" => {
-            url =
-                url +
-                "/autocomplete/amp?dataset=chinese-simplified-english&__amp_source_origin=" +
-                &init_url +
-                "&q=" +
-                &data.words;
+            url = url
+                + "/autocomplete/amp?dataset=chinese-simplified-english&__amp_source_origin="
+                + &init_url
+                + "&q="
+                + &data.words;
         }
         _ => {
             return Rep::<Option<Vec<WordsRepItem>>>::new(BadRequest.self_code(), "参数错误", None);
         }
     }
 
-    let words_rep = reqwest::get(url).await.unwrap().json::<Vec<WordsRepItem>>().await;
+    let words_rep = reqwest::get(url)
+        .await
+        .unwrap()
+        .json::<Vec<WordsRepItem>>()
+        .await;
 
     match words_rep {
-        Ok(words_rep) => {
-            Rep::<Option<Vec<WordsRepItem>>>::new(
-                Success.self_code(),
-                "成功",
-                Some(Some(words_rep))
-            )
-        }
+        Ok(words_rep) => Rep::<Option<Vec<WordsRepItem>>>::new(
+            Success.self_code(),
+            "成功",
+            Some(Some(words_rep)),
+        ),
         Err(error) => {
             println!("{}", error);
             Rep::<Option<Vec<WordsRepItem>>>::new(BusinessError.self_code(), "查询错误", None)
@@ -285,24 +292,31 @@ pub struct FindPageParams {
     pub translation_type: String,
 }
 
-
-#[openapi(tag = "translation", ignore = "db")]
+#[openapi(tag = "translation", ignore = "db", ignore = "_claims")]
 #[post("/api/translation/findPage", data = "<data>", format = "json")]
 pub async fn find_page(
     _claims: Claims,
     db: Connection<'_, Db>,
-    data: Json<FindPageParams>
+    data: Json<FindPageParams>,
 ) -> Json<Rep<FindPageRep>> {
     let db = db.into_inner();
-    let  result = Words::find().filter(words::Column::Type.eq(&data.translation_type)).paginate(db, data.page_size);
+    let result = Words::find()
+        .filter(words::Column::Type.eq(&data.translation_type))
+        .paginate(db, data.page_size);
     let current_page = data.page - 1;
 
-    let result_list = result.fetch_page(current_page).await.unwrap().into_iter().map(|item| FindPageRepItem {
-        id: item.id,
-        word: item.word,
-        translations: serde_json::from_str(&item.translation).unwrap(),
-        create_user: item.create_user,
-    }).collect::<Vec<FindPageRepItem>>();
+    let result_list = result
+        .fetch_page(current_page)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|item| FindPageRepItem {
+            id: item.id,
+            word: item.word,
+            translations: serde_json::from_str(&item.translation).unwrap(),
+            create_user: item.create_user,
+        })
+        .collect::<Vec<FindPageRepItem>>();
 
     let rep = FindPageRep {
         page: data.page,
