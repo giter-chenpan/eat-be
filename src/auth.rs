@@ -1,18 +1,18 @@
 use ::entity::user::{self, Entity as User};
-use bcrypt::{hash, verify, DEFAULT_COST};
+use bcrypt::{DEFAULT_COST, hash, verify};
 use rocket::{
     http::Status,
     outcome::Outcome,
     request::{self, FromRequest, Request},
     serde::{
-        json::{json, Json, Value},
         Deserialize, Serialize,
+        json::{Json, Value, json},
     },
 };
-use rocket_db_pools::deadpool_redis::redis::AsyncCommands;
 use rocket_db_pools::Connection as RedisConnection;
+use rocket_db_pools::deadpool_redis::redis::AsyncCommands;
 use rocket_okapi::{
-    gen::OpenApiGenerator,
+    r#gen::OpenApiGenerator,
     okapi::openapi3::{Object, SecurityRequirement, SecurityScheme, SecuritySchemeData},
     openapi,
     request::{OpenApiFromRequest, RequestHeaderInput},
@@ -24,10 +24,10 @@ use sea_orm_rocket::Connection;
 use crate::common::data_structure::*;
 use crate::common::enums::Code;
 
-use crate::jwtuser::{encode_token, Claims, SECRET};
+use crate::jwtuser::{Claims, SECRET, encode_token};
 use crate::pool::{Db, RedisPool};
 use chrono::Local;
-use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
 use rocket::{self, error};
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
