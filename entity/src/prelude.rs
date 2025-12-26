@@ -3,6 +3,7 @@
 pub use super::category::Entity as Category;
 pub use super::dishes::Entity as Dishes;
 pub use super::seaql_migrations::Entity as SeaqlMigrations;
+pub use super::times::Entity as Times;
 pub use super::user::Entity as User;
 pub use super::user_select::Entity as UserSelect;
 pub use super::words::Entity as Words;

@@ -1,4 +1,4 @@
-use rocket::serde::{ json::Json, Deserialize, Serialize };
+use rocket::serde::{Deserialize, Serialize, json::Json};
 use rocket_okapi::JsonSchema;
 #[derive(Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -17,7 +17,6 @@ impl<T: Serialize> Rep<T> {
     }
 }
 
-
 /// word type mapping
 #[derive(Deserialize, Serialize, JsonSchema)]
 pub struct WordType {
@@ -27,21 +26,18 @@ pub struct WordType {
 
 pub fn mapping_word_type(s: &str) -> Option<WordType> {
     match s {
-        "noun" =>
-            Some(WordType {
-                name: s.to_string(),
-                description: "名词".to_string(),
-            }),
-        "verb" =>
-            Some(WordType {
-                name: s.to_string(),
-                description: "动词".to_string(),
-            }),
-        "suffix" =>
-            Some(WordType {
-                name: s.to_string(),
-                description: "后缀".to_string(),
-            }),
+        "noun" => Some(WordType {
+            name: s.to_string(),
+            description: "名词".to_string(),
+        }),
+        "verb" => Some(WordType {
+            name: s.to_string(),
+            description: "动词".to_string(),
+        }),
+        "suffix" => Some(WordType {
+            name: s.to_string(),
+            description: "后缀".to_string(),
+        }),
         _ => None,
     }
 }

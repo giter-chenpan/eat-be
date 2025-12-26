@@ -3,15 +3,15 @@ extern crate rocket;
 
 use migration::MigratorTrait;
 use rocket::{
+    Build, Request, Rocket,
     fairing::{self, AdHoc},
     http::Status,
     response::status,
-    Build, Request, Rocket,
 };
 use rocket_db_pools::Database as RedisDatabase;
 use rocket_okapi::{
     openapi, openapi_get_routes,
-    swagger_ui::{make_swagger_ui, SwaggerUIConfig},
+    swagger_ui::{SwaggerUIConfig, make_swagger_ui},
 };
 use sea_orm_rocket::Database;
 mod api;
@@ -73,7 +73,9 @@ fn rocket() -> _ {
                 api::file::get_image,
                 api::translation::handle_translation,
                 api::translation::get_words,
-                api::translation::find_page
+                api::translation::find_page,
+                api::times::set_times,
+                api::times::get_times_page
             ],
         )
         .mount(

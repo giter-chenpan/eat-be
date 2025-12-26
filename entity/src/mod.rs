@@ -5,6 +5,7 @@ pub mod prelude;
 pub mod category;
 pub mod dishes;
 pub mod seaql_migrations;
+pub mod times;
 pub mod user;
 pub mod user_select;
 pub mod words;

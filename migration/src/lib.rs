@@ -21,6 +21,7 @@ mod m20250718_073733_update_user_table;
 mod m20250723_105707_update_user_table_salt;
 mod m20250723_110308_update_user_table_salt;
 mod m20250723_110634_delete_user_table_salt;
+mod m20251226_071535_create_table;
 
 pub struct Migrator;
 
@@ -49,6 +50,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250723_105707_update_user_table_salt::Migration),
             Box::new(m20250723_110308_update_user_table_salt::Migration),
             Box::new(m20250723_110634_delete_user_table_salt::Migration),
+            Box::new(m20251226_071535_create_table::Migration),
         ]
     }
 }
