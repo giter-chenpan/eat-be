@@ -1,9 +1,9 @@
 use ::entity::times::{self, Entity as Times};
-use chrono::Utc;
+use chrono::Local;
 use rocket::serde::json::Json;
 use rocket_okapi::openapi;
 use schemars::JsonSchema;
-use sea_orm::{ActiveModelTrait, EntityTrait, PaginatorTrait, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
 use sea_orm_rocket::Connection;
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,7 @@ use crate::jwtuser::Claims;
 #[get("/api/times")]
 pub async fn set_times(_claims: Claims, db: Connection<'_, Db>) -> Json<Rep<Option<String>>> {
     let db = db.into_inner();
-    let now = Utc::now();
+    let now = Local::now();
     let time = format!("{}", now.format("%Y-%m-%d %H:%M:%S"));
     let day = format!("{}", now.format("%Y-%m-%d"));
 
@@ -45,6 +45,7 @@ pub async fn set_times(_claims: Claims, db: Connection<'_, Db>) -> Json<Rep<Opti
 #[serde(rename_all = "camelCase")]
 pub struct FindPageRepItem {
     all_time: String,
+    id: i32,
 }
 
 #[derive(Deserialize, Serialize, JsonSchema)]
@@ -59,6 +60,7 @@ pub struct FindPageRep {
 pub struct Params {
     pub page: u64,
     pub page_size: u64,
+    pub day: String,
 }
 
 #[openapi(tag = "times", ignore = "db", ignore = "_claims")]
@@ -70,7 +72,12 @@ pub async fn get_times_page(
 ) -> Json<Rep<FindPageRep>> {
     let db = db.into_inner();
 
-    let result = Times::find().paginate(db, data.page_size);
+    let user_id = _claims.sub.parse::<i32>().unwrap_or(0);
+
+    let result = Times::find()
+        .filter(times::Column::CreatedUser.eq(user_id))
+        .filter(times::Column::Time.eq(data.day.clone()))
+        .paginate(db, data.page_size);
     let current_page = data.page - 1;
 
     let result_list = result
@@ -80,6 +87,7 @@ pub async fn get_times_page(
         .into_iter()
         .map(|item| FindPageRepItem {
             all_time: item.all_time,
+            id: item.id,
         })
         .collect::<Vec<FindPageRepItem>>();
 
@@ -95,4 +103,29 @@ pub async fn get_times_page(
         list: result_list,
     };
     Rep::<FindPageRep>::new(Success.self_code(), "成功", Some(rep))
+}
+
+#[derive(Deserialize, Serialize, JsonSchema)]
+pub struct DeleteTimesParams {
+    pub id: i32,
+}
+
+#[openapi(tag = "times", ignore = "db", ignore = "_claims")]
+#[post("/api/delete_times", data = "<data>", format = "json")]
+pub async fn delete_times(
+    _claims: Claims,
+    db: Connection<'_, Db>,
+    data: Json<DeleteTimesParams>,
+) -> Json<Rep<Option<()>>> {
+    let db = db.into_inner();
+
+    let result = Times::delete_by_id(data.id).exec(db).await;
+
+    match result {
+        Ok(_) => Rep::<Option<()>>::new(Success.self_code(), "成功", Some(None)),
+        Err(error) => {
+            println!("{}", error);
+            Rep::<Option<()>>::new(BusinessError.self_code(), "删除错误", Some(None))
+        }
+    }
 }

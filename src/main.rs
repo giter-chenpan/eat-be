@@ -75,7 +75,8 @@ fn rocket() -> _ {
                 api::translation::get_words,
                 api::translation::find_page,
                 api::times::set_times,
-                api::times::get_times_page
+                api::times::get_times_page,
+                api::times::delete_times,
             ],
         )
         .mount(
