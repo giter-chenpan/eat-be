@@ -51,7 +51,20 @@ async fn run_migrations(rocket: Rocket<Build>) -> fairing::Result {
 
 #[launch]
 fn rocket() -> _ {
+    // 启动 MCP server 异步任务
     rocket::build()
+        .attach(rocket::fairing::AdHoc::try_on_ignite(
+            "MCP Server",
+            |rocket| async {
+                rocket::tokio::spawn(async {
+                    println!("🚀 Starting Server-Sent Events (SSE) MCP Server on port 8081...");
+                    if let Err(e) = howtocook_mcp_server::run_mcp_server().await {
+                        eprintln!("❌ MCP Server error: {}", e);
+                    }
+                });
+                Ok(rocket)
+            },
+        ))
         .attach(RedisPool::init())
         .attach(Db::init())
         .attach(AdHoc::try_on_ignite("Migrations", run_migrations))

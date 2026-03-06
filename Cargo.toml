@@ -6,7 +6,7 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = [".", "entity", "migration", "entity"]
+members = [".", "entity", "migration", "mcp-server"]
 
 [dependencies]
 rocket = { version = "0.5.0", features = ["secrets", "tls", "json"] }
@@ -30,6 +30,7 @@ reqwest = { version = "0.12.15", features = ["json"] }
 scraper = "0.23.1"
 openssl = { version = "0.10", features = ["vendored"] }
 bcrypt = "0.17.0"
+howtocook-mcp-server = { path = "mcp-server" }
 
 
 [dependencies.uuid]
