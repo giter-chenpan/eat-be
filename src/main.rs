@@ -44,22 +44,21 @@ fn default_catcher(status: Status, req: &Request<'_>) -> status::Custom<String> 
 
 async fn run_migrations(rocket: Rocket<Build>) -> fairing::Result {
     let conn = &Db::fetch(&rocket).unwrap().conn;
-    //初次执行用 fresh()方法
     let _ = migration::Migrator::up(conn, None).await;
     Ok(rocket)
 }
 
 #[launch]
 fn rocket() -> _ {
-    // 启动 MCP server 异步任务
     rocket::build()
         .attach(rocket::fairing::AdHoc::try_on_ignite(
             "MCP Server",
             |rocket| async {
+                // 在独立 tokio task 中启动 MCP 服务，不阻塞 Rocket 主线程
+                // MCP 监听 8081 端口，Rocket 主服务监听 Rocket.toml 中配置的端口
                 rocket::tokio::spawn(async {
-                    println!("🚀 Starting Server-Sent Events (SSE) MCP Server on port 8081...");
-                    if let Err(e) = howtocook_mcp_server::run_mcp_server().await {
-                        eprintln!("❌ MCP Server error: {}", e);
+                    if let Err(e) = howtocook_mcp_server::start("0.0.0.0:8081").await {
+                        eprintln!("❌ MCP Server error: {e}");
                     }
                 });
                 Ok(rocket)

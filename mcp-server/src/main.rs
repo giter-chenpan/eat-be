@@ -1,6 +1,13 @@
-use howtocook_mcp_server::run_mcp_server;
+use howtocook_mcp_server::{DEFAULT_BIND_ADDR, start};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    run_mcp_server().await
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info".into()),
+        )
+        .init();
+
+    start(DEFAULT_BIND_ADDR).await
 }
