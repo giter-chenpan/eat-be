@@ -65,7 +65,7 @@ impl HowToCookServer {
         }
     }
 
-    #[tool(description = "列出 HowToCook 仓库中所有菜谱分类")]
+    #[tool(description = "列出 HowToCook 仓库中所有目录，含菜谱分类、难度等级、技巧指南")]
     async fn list_categories(&self) -> Result<CallToolResult, McpError> {
         let mut categories: Vec<String> = self
             .recipes
@@ -80,7 +80,7 @@ impl HowToCookServer {
         )]))
     }
 
-    #[tool(description = "列出所有菜谱名称，可通过 category 参数按分类过滤")]
+    #[tool(description = "列出所有内容名称（菜谱、难度或技巧），可通过 category 参数按分类过滤（例如：“难度等级”、“技巧指南”）")]
     async fn list_recipes(
         &self,
         Parameters(params): Parameters<ListRecipesParams>,
@@ -94,14 +94,14 @@ impl HowToCookServer {
         names.sort();
 
         let text = if names.is_empty() {
-            "未找到菜谱".to_string()
+            "未找到对应内容".to_string()
         } else {
             names.join("\n")
         };
         Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
-    #[tool(description = "根据菜谱名称获取完整 Markdown 内容（含食材和步骤）")]
+    #[tool(description = "根据名称获取完整 Markdown 内容（支持菜谱、难度系统和技巧指南）")]
     async fn get_recipe(
         &self,
         Parameters(params): Parameters<GetRecipeParams>,
@@ -111,13 +111,13 @@ impl HowToCookServer {
             .map(|r| CallToolResult::success(vec![Content::text(r.content.clone())]))
             .ok_or_else(|| {
                 McpError::invalid_params(
-                    format!("未找到菜谱 '{}'，请先用 list_recipes 确认名称", params.name),
+                    format!("未找到名称为 '{}' 的内容，请先用 list_recipes 确认", params.name),
                     None,
                 )
             })
     }
 
-    #[tool(description = "在菜谱名称和内容中搜索关键词，返回匹配列表")]
+    #[tool(description = "在菜谱、难度和技巧的名称及内容中搜索关键词，返回匹配列表")]
     async fn search_recipes(
         &self,
         Parameters(params): Parameters<SearchRecipesParams>,
@@ -134,7 +134,7 @@ impl HowToCookServer {
         results.sort();
 
         let text = if results.is_empty() {
-            format!("未找到包含 '{}' 的菜谱", params.keyword)
+            format!("未找到包含 '{}' 的内容", params.keyword)
         } else {
             format!("找到 {} 条结果：\n{}", results.len(), results.join("\n"))
         };
@@ -153,7 +153,7 @@ impl ServerHandler for HowToCookServer {
                 ..Default::default()
             },
             instructions: Some(
-                "HowToCook MCP — 中文菜谱查询。\n\
+                "HowToCook MCP — 中文菜谱、难度系统及厨房技巧查询。\n\
                  工具：list_categories / list_recipes / get_recipe / search_recipes"
                     .to_string(),
             ),
@@ -224,74 +224,119 @@ async fn ensure_repo(repo_path: &Path) -> anyhow::Result<()> {
 
 // ─── 菜谱加载 ────────────────────────────────────────────────────────────────
 
-/// 递归扫描 dishes/ 目录，加载所有 .md 菜谱（在阻塞线程池执行文件 I/O）
-pub async fn load_recipes(dishes_dir: &Path) -> anyhow::Result<HashMap<String, RecipeInfo>> {
-    if !dishes_dir.exists() {
-        tracing::warn!("[MCP] dishes 目录不存在：{}", dishes_dir.display());
-        return Ok(HashMap::new());
+/// 递归扫描指定目录，并将其内容加入菜谱 Map
+fn scan_dir(
+    dir: &Path,
+    map: &mut HashMap<String, RecipeInfo>,
+    // 如果为 None，则以第一层子目录名作为 category
+    // 如果为 Some，则使用该值作为固定的 category 前缀
+    fixed_category: Option<&str>,
+) -> std::io::Result<()> {
+    if !dir.exists() {
+        return Ok(());
     }
 
-    let dir = dishes_dir.to_path_buf();
-    // 文件扫描是阻塞 I/O，放到 spawn_blocking 避免占用 async 线程
-    let recipes = tokio::task::spawn_blocking(move || {
-        let mut map = HashMap::new();
-        for cat_entry in std::fs::read_dir(&dir)?.flatten() {
-            if !cat_entry.file_type()?.is_dir() {
-                continue;
-            }
-            let category = cat_entry.file_name().to_string_lossy().to_string();
-            for rec_entry in std::fs::read_dir(cat_entry.path())?.flatten() {
-                let path = rec_entry.path();
-                if path.extension().and_then(|e| e.to_str()) != Some("md") {
-                    continue;
+    if let Some(cat) = fixed_category {
+        // 固定分类模式：递归扫描该目录下所有 .md 文件
+        let mut stack = vec![dir.to_path_buf()];
+        while let Some(current_path) = stack.pop() {
+            for entry in std::fs::read_dir(current_path)?.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else if path.extension().and_then(|e| e.to_str()) == Some("md") {
+                    if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
+                        map.insert(
+                            name.to_string(),
+                            RecipeInfo {
+                                name: name.to_string(),
+                                category: cat.to_string(),
+                                content: std::fs::read_to_string(&path).unwrap_or_default(),
+                            },
+                        );
+                    }
                 }
-                let Some(name) = path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .map(str::to_string)
-                else {
-                    continue;
-                };
-                let content = std::fs::read_to_string(&path).unwrap_or_default();
-                map.insert(
-                    name.clone(),
-                    RecipeInfo {
-                        name,
-                        category: category.clone(),
-                        content,
-                    },
-                );
             }
         }
+    } else {
+        // 第一层子目录作为分类模式
+        for entry in std::fs::read_dir(dir)?.flatten() {
+            if !entry.file_type()?.is_dir() {
+                continue;
+            }
+            let category = entry.file_name().to_string_lossy().to_string();
+            let mut stack = vec![entry.path()];
+            while let Some(current_path) = stack.pop() {
+                for sub_entry in std::fs::read_dir(current_path)?.flatten() {
+                    let path = sub_entry.path();
+                    if path.is_dir() {
+                        stack.push(path);
+                    } else if path.extension().and_then(|e| e.to_str()) == Some("md") {
+                        if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
+                            map.insert(
+                                name.to_string(),
+                                RecipeInfo {
+                                    name: name.to_string(),
+                                    category: category.clone(),
+                                    content: std::fs::read_to_string(&path).unwrap_or_default(),
+                                },
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 加载所有数据：菜谱 (dishes)、难度系统 (starsystem) 和 技巧指南 (tips)
+pub async fn load_recipes(repo_dir: &Path) -> anyhow::Result<HashMap<String, RecipeInfo>> {
+    let dir = repo_dir.to_path_buf();
+    let recipes = tokio::task::spawn_blocking(move || {
+        let mut map = HashMap::new();
+
+        // 1. 加载菜谱 (dishes) - 按第一层目录分类
+        if let Err(e) = scan_dir(&dir.join("dishes"), &mut map, None) {
+            tracing::warn!("[MCP] 加载 dishes 失败: {e}");
+        }
+
+        // 2. 加载难度系统 (starsystem) - 固定分类 "难度等级"
+        if let Err(e) = scan_dir(&dir.join("starsystem"), &mut map, Some("难度等级")) {
+            tracing::warn!("[MCP] 加载 starsystem 失败: {e}");
+        }
+
+        // 3. 加载技巧指南 (tips) - 固定分类 "技巧指南"
+        if let Err(e) = scan_dir(&dir.join("tips"), &mut map, Some("技巧指南")) {
+            tracing::warn!("[MCP] 加载 tips 失败: {e}");
+        }
+
         Ok::<_, std::io::Error>(map)
     })
     .await
     .context("文件扫描任务崩溃")?
     .context("读取菜谱目录失败")?;
 
-    tracing::info!("[MCP] 加载了 {} 条菜谱", recipes.len());
+    tracing::info!("[MCP] 总计加载了 {} 条内容（含菜谱、难度和技巧）", recipes.len());
     Ok(recipes)
 }
 
 // ─── 公共启动入口 ─────────────────────────────────────────────────────────────
 
-/// 启动 MCP HTTP 服务（阻塞直到退出），适合在独立 tokio task 中调用。
-/// `bind_addr` 示例：`"0.0.0.0:8081"`
 pub async fn start(bind_addr: &str) -> anyhow::Result<()> {
     start_with_repo(bind_addr, DEFAULT_REPO_DIR).await
 }
 
-/// 可指定仓库路径的启动入口（方便测试或自定义部署）
 pub async fn start_with_repo(bind_addr: &str, repo_dir: &str) -> anyhow::Result<()> {
     let repo_path = Path::new(repo_dir);
 
     ensure_repo(repo_path).await?;
 
-    let recipes = load_recipes(&repo_path.join("dishes")).await?;
+    let recipes = load_recipes(repo_path).await?;
     let server = Arc::new(HowToCookServer::new(recipes));
 
     let config = StreamableHttpServerConfig {
-        stateful_mode: false, // 无状态模式，兼容所有 MCP 客户端
+        stateful_mode: false,
         ..Default::default()
     };
 
