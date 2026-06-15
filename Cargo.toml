@@ -6,7 +6,7 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = [".", "entity", "migration", "mcp-server"]
+members = [".", "entity", "migration", "mcp-server", "tools/mysql-to-sqlite"]
 
 [dependencies]
 rocket = { version = "0.5.0", features = ["secrets", "tls", "json"] }
@@ -14,7 +14,7 @@ sea-orm-rocket = "0.5.4"
 serde = { version = "1.0", features = ["derive"] }
 async-trait = { version = "0.1" }
 sea-orm = { version = "0.12.15", features = [
-    "sqlx-mysql",
+    "sqlx-sqlite",
     "runtime-tokio-rustls",
     "with-uuid",
 ] }
@@ -40,8 +40,8 @@ features = ["v7", "v4"]
 [dependencies.sqlx]
 version = "0.7"
 default-features = false
-features = ["macros", "migrate", "mysql"]
+features = ["macros", "migrate", "sqlite"]
 
 [dependencies.rocket_db_pools]
 version = "0.1.0"
-features = ["deadpool_redis", "sqlx_mysql"]
+features = ["deadpool_redis"]

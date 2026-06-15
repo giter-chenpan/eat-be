@@ -2386,6 +2386,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mysql-to-sqlite"
+version = "0.1.0"
+dependencies = [
+ "entity",
+ "sea-orm",
+ "tokio",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3389,7 +3398,6 @@ dependencies = [
  "deadpool-redis",
  "rocket",
  "rocket_db_pools_codegen",
- "sqlx",
  "version_check",
 ]
 

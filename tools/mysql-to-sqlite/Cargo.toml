@@ -1,0 +1,18 @@
+[package]
+name = "mysql-to-sqlite"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "mysql-to-sqlite"
+path = "src/main.rs"
+
+[dependencies]
+entity = { path = "../../entity" }
+sea-orm = { version = "0.12.15", features = [
+    "sqlx-mysql",
+    "sqlx-sqlite",
+    "runtime-tokio-rustls",
+] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

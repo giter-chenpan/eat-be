@@ -20,13 +20,13 @@ features = [
   # e.g.
   "runtime-tokio-rustls",  # `ASYNC_RUNTIME` feature
   # "sqlx-postgres",         # `DATABASE_DRIVER` feature
-  "sqlx-mysql"
+  "sqlx-sqlite"
 ]
 
 [dependencies.sqlx]
 version = "0.7"
 features = [
-  "mysql",
+  "sqlite",
   "macros",
   "migrate"
 ]

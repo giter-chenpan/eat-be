@@ -9,7 +9,7 @@ else
     echo "version_history.txt does not exist"
 fi
 
-echo "What's the new version?" 
+echo "What's the new version?"
 read VERSION
 
 echo -e "\nversion is : $VERSION"
@@ -32,5 +32,14 @@ cargo zigbuild --target $TARGET --release
 
 ## bundle
 tar -cvzf "${VERSION}.tar.gz" "${ASSETS[@]}" -C "${BUILD_DIR}" "${PKG}"
+
+echo "开始通过 SFTP 上传文件..."
+read ADDR
+
+sftp root@${ADDR} <<EOF
+cd /www/pkg
+put ${VERSION}.tar.gz
+quit
+EOF
 
 echo "$VERSION" >> version_history.txt

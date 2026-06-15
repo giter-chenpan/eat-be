@@ -1,4 +1,8 @@
+build.sh
 /target
 Rocket.toml
+data/
+*.db
+*.db-*
 *.tar.gz
 Cargo.lock
