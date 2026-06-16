@@ -477,7 +477,9 @@ pub fn get_config() -> &'static AppConfig {
 }
 ```
 
-- [ ] **Step 2: Add defaults to Rocket.toml**
+- [ ] **Step 2: Add defaults to Rocket.toml (LOCAL ONLY — file is gitignored)**
+
+**Important:** `Rocket.toml` is listed in `.gitignore`. Do NOT commit changes to it. Edit the file locally for dev convenience only; production deploys must set the `OPENROUTER_API_KEY` env var (which Rocket's figment auto-merges).
 
 Append the following block inside `[default]` in `Rocket.toml` (place it after the existing `translation_url` line):
 
@@ -488,6 +490,8 @@ chat_rate_limit_per_minute = 20
 chat_max_tool_iterations = 5
 mcp_server_url = "http://127.0.0.1:8081"
 ```
+
+The file stays in the developer's working tree, untracked. Do not use `git add -f`.
 
 - [ ] **Step 3: Verify compile**
 
