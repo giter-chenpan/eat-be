@@ -420,8 +420,9 @@ pub async fn send_message_stream(
         let mut final_text = String::new();
         let mut hit_iter_cap = false;
         let mut last_finish_reason: Option<String> = None;
+        let mut consecutive_mcp_failures: u32 = 0;
 
-        loop {
+        'react_loop: loop {
             iter_count += 1;
             if iter_count > max_iterations {
                 hit_iter_cap = true;
@@ -460,6 +461,7 @@ pub async fn send_message_stream(
                             "data: {{\"error\":\"stream: {}\"}}\n\n",
                             e
                         ));
+                        let _ = tx.send("data: [DONE]\n\n".to_string());
                         persist_assistant_failed(
                             &db_clone,
                             &session_id,
@@ -541,8 +543,12 @@ pub async fn send_message_stream(
                     )
                     .await
                     {
-                        Ok(s) => s,
+                        Ok(s) => {
+                            consecutive_mcp_failures = 0;
+                            s
+                        }
                         Err(e) => {
+                            consecutive_mcp_failures += 1;
                             let err_msg = format!("工具调用失败: {e}");
                             let _ = (chat_message::ActiveModel {
                                 id: Set(new_id()),
@@ -562,6 +568,13 @@ pub async fn send_message_stream(
                             })
                             .insert(&db_clone)
                             .await;
+                            if consecutive_mcp_failures >= 2 {
+                                let _ = tx.send(format!(
+                                    "data: {{\"error\":\"暂时无法查询菜谱库\"}}\n\n"
+                                ));
+                                let _ = tx.send("data: [DONE]\n\n".to_string());
+                                break 'react_loop;
+                            }
                             err_msg
                         }
                     };
