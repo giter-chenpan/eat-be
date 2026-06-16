@@ -316,7 +316,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(ChatMessages::CompletionTokens).integer().null())
                     .col(ColumnDef::new(ChatMessages::CreatedAt).string().not_null())
                     .foreign_key(
-                        ForeignKey::create()
+                        &mut ForeignKey::create()
                             .name("fk_chat_messages_session")
                             .from(ChatMessages::Table, ChatMessages::SessionId)
                             .to(ChatSessions::Table, ChatSessions::Id)
