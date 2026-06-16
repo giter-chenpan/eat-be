@@ -3,6 +3,8 @@
 pub mod prelude;
 
 pub mod category;
+pub mod chat_message;
+pub mod chat_session;
 pub mod dishes;
 pub mod seaql_migrations;
 pub mod times;
