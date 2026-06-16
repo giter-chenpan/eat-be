@@ -46,6 +46,7 @@ mod m20250723_110634_delete_user_table_salt;
 #[allow(dead_code)]
 mod m20251226_071535_create_table;
 
+mod m20260616_000000_create_chat_tables;
 mod m20260611_000000_sqlite_baseline;
 
 pub struct Migrator;
@@ -53,6 +54,9 @@ pub struct Migrator;
 #[async_trait::async_trait]
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(m20260611_000000_sqlite_baseline::Migration)]
+        vec![
+            Box::new(m20260611_000000_sqlite_baseline::Migration),
+            Box::new(m20260616_000000_create_chat_tables::Migration),
+        ]
     }
 }
