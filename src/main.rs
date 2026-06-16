@@ -18,6 +18,7 @@ mod api;
 mod auth;
 mod common;
 mod config;
+mod openrouter;
 
 mod pool;
 

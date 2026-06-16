@@ -32,6 +32,8 @@ scraper = "0.23.1"
 openssl = { version = "0.10", features = ["vendored"] }
 bcrypt = "0.17.0"
 howtocook-mcp-server = { path = "mcp-server" }
+thiserror = "1"
+serde_json = "1"
 
 
 [dependencies.uuid]
