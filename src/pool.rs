@@ -25,14 +25,18 @@ impl sea_orm_rocket::Pool for SeaOrmPool {
     async fn init(figment: &Figment) -> Result<Self, Self::Error> {
         let config = figment.extract::<Config>().unwrap();
         let mut options: ConnectOptions = config.url.into();
+        // Cap pool size: SQLite is file-based and serializes writes, so a large
+        // pool mainly causes `SQLITE_BUSY`. Defaults: min 2 warm, max 10, idle
+        // 10 min so stale conns recycle.
+        let max_connections = config.max_connections.min(10) as u32;
+        let min_connections = config.min_connections.unwrap_or(2);
+        let idle_timeout = config.idle_timeout.unwrap_or(600);
         options
-            .max_connections(config.max_connections as u32)
-            .min_connections(config.min_connections.unwrap_or_default())
+            .max_connections(max_connections)
+            .min_connections(min_connections)
             .connect_timeout(Duration::from_secs(config.connect_timeout))
-            .sqlx_logging(config.sqlx_logging);
-        if let Some(idle_timeout) = config.idle_timeout {
-            options.idle_timeout(Duration::from_secs(idle_timeout));
-        }
+            .sqlx_logging(config.sqlx_logging)
+            .idle_timeout(Duration::from_secs(idle_timeout));
         let conn = sea_orm::Database::connect(options).await?;
 
         Ok(SeaOrmPool { conn })
