@@ -16,12 +16,6 @@ pub struct ImportDishes {
     view_id: String,
 }
 
-#[derive(Deserialize, Serialize, JsonSchema)]
-pub struct FindPage {
-    page: i32,
-    page_size: i32,
-}
-
 /// #save dishes
 ///
 /// save dishes
