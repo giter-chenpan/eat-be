@@ -164,12 +164,21 @@ impl<'r> FromRequest<'r> for Claims {
     type Error = ();
 
     async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
-        let token = match request.headers().get_one("Authorization") {
-            Some(token) => token.to_string(),
+        let raw_header = match request.headers().get_one("Authorization") {
+            Some(h) => h,
             None => {
                 return Outcome::Error((Status::Unauthorized, ()));
             }
         };
+        // Accept both `Bearer <token>` (RFC 7235) and bare `<token>`. If the
+        // header doesn't begin with the scheme name, treat the whole value as
+        // the token — this preserves the previous behavior for clients that
+        // send the token without the scheme prefix.
+        let token = raw_header
+            .strip_prefix("Bearer ")
+            .or_else(|| raw_header.strip_prefix("bearer "))
+            .unwrap_or(raw_header)
+            .to_string();
 
         let mut validation = Validation::new(Algorithm::HS256);
         validation.validate_exp = true;
