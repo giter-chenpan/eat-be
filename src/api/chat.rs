@@ -23,8 +23,6 @@ const SYSTEM_PROMPT: &str = "你是一个友好的中文烹饪助手。你可以
 - 不需要时(例如寒暄、通用烹饪知识)直接回答;\
 - 用简洁、可操作的中文回答,涉及具体菜谱时引用工具返回的菜名。";
 
-const TITLE_MAX: usize = 50;
-
 fn now_str() -> String {
     Utc::now().to_rfc3339()
 }
@@ -283,7 +281,6 @@ pub struct SendMessageReq {
     pub content: String,
 }
 
-const STATUS_PENDING: &str = "pending";
 const STATUS_COMPLETE: &str = "complete";
 const STATUS_FAILED: &str = "failed";
 
@@ -422,7 +419,6 @@ pub async fn send_message_stream(
     let max_iterations = cfg.chat_max_tool_iterations;
 
     tokio::spawn(async move {
-        let mut final_text = String::new();
         let mut hit_iter_cap = false;
         let mut done_sent = false;
         let mut consecutive_mcp_failures: u32 = 0;
@@ -622,7 +618,7 @@ pub async fn send_message_stream(
             }
 
             // No tool calls — this is the final iteration.
-            final_text = accumulator.text.clone();
+            let final_text = accumulator.text.clone();
             let assistant_id = new_id();
             let _ = (chat_message::ActiveModel {
                 id: Set(assistant_id),

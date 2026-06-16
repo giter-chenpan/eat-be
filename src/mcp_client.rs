@@ -1,5 +1,5 @@
 use crate::config::get_config;
-use rmcp::model::{CallToolRequestParams, Content, Tool};
+use rmcp::model::{CallToolRequestParams, Content};
 use rmcp::service::{RoleClient, RunningService, ServiceExt};
 use rmcp::transport::streamable_http_client::{
     StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
@@ -65,12 +65,3 @@ pub async fn call_tool(
         .join("\n");
     Ok(text)
 }
-
-/// Return the list of MCP tool definitions in OpenRouter's `tools` field format.
-pub fn tool_definitions_for_openrouter() -> Vec<serde_json::Value> {
-    crate::openrouter::mcp_tools_payload()
-}
-
-/// Suppress unused warning for the Tool type (re-exported for future use).
-#[allow(dead_code)]
-fn _phantom(_: Tool) {}
