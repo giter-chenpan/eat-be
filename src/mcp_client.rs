@@ -5,21 +5,38 @@ use rmcp::transport::streamable_http_client::{
     StreamableHttpClientTransport, StreamableHttpClientTransportConfig,
 };
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::OnceCell;
 
-pub type McpClient = Arc<Mutex<Option<RunningService<RoleClient, ()>>>>;
+/// Lazily-initialized MCP client handle. The inner `OnceCell` is empty until the
+/// first tool call triggers a connection, so the application can boot even if
+/// the mcp-server is briefly unavailable.
+pub type McpClient = Arc<OnceCell<RunningService<RoleClient, ()>>>;
 
-/// Build a transport pointed at the local mcp-server. Caller is responsible for
-/// connecting it via `.serve(...)` and storing the result.
-pub async fn build_client() -> anyhow::Result<McpClient> {
-    let cfg = get_config();
-    let url = format!("{}/mcp", cfg.mcp_server_url);
-    let transport = StreamableHttpClientTransport::with_client(
-        reqwest::Client::default(),
-        StreamableHttpClientTransportConfig::with_uri(url),
-    );
-    let client = ().serve(transport).await?;
-    Ok(Arc::new(Mutex::new(Some(client))))
+/// Build an MCP client handle. This is intentionally synchronous and performs
+/// no I/O — it only constructs the transport configuration and wraps it in a
+/// `OnceCell`. The actual connection is deferred to `ensure_connected`, which
+/// runs on the first tool call.
+pub fn build_client() -> McpClient {
+    Arc::new(OnceCell::new())
+}
+
+/// Connect to the MCP server on first call, returning the running service.
+/// Subsequent calls return the cached service without re-connecting.
+async fn ensure_connected(client: &McpClient) -> Result<&RunningService<RoleClient, ()>, String> {
+    client
+        .get_or_try_init(|| async {
+            let cfg = get_config();
+            let url = format!("{}/mcp", cfg.mcp_server_url);
+            let transport = StreamableHttpClientTransport::with_client(
+                reqwest::Client::default(),
+                StreamableHttpClientTransportConfig::with_uri(url),
+            );
+            let svc = ().serve(transport).await.map_err(|e| {
+                format!("mcp client connect failed: {e}")
+            })?;
+            Ok::<_, String>(svc)
+        })
+        .await
 }
 
 /// Call an MCP tool by name with the given arguments (as a JSON object).
@@ -29,8 +46,7 @@ pub async fn call_tool(
     name: &str,
     args: serde_json::Value,
 ) -> Result<String, String> {
-    let mut guard = client.lock().await;
-    let svc = guard.as_mut().ok_or_else(|| "mcp client not initialized".to_string())?;
+    let svc = ensure_connected(client).await?;
     let req = CallToolRequestParams {
         name: name.to_string().into(),
         arguments: Some(args.as_object().cloned().unwrap_or_default()),

@@ -69,6 +69,7 @@ fn rocket() -> _ {
         .attach(RedisPool::init())
         .attach(Db::init())
         .attach(AdHoc::try_on_ignite("Migrations", run_migrations))
+        .manage(mcp_client::build_client())
         .mount(
             "/",
             openapi_get_routes![
