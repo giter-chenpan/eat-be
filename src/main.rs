@@ -92,6 +92,12 @@ fn rocket() -> _ {
                 api::times::set_times,
                 api::times::get_times_page,
                 api::times::delete_times,
+                api::chat::create_session,
+                api::chat::list_sessions,
+                api::chat::get_session,
+                api::chat::delete_session,
+                api::chat::list_messages,
+                api::chat::send_message_stream,
             ],
         )
         .mount(
