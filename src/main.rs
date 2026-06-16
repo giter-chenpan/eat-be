@@ -18,6 +18,7 @@ mod api;
 mod auth;
 mod common;
 mod config;
+mod mcp_client;
 mod openrouter;
 
 mod pool;
