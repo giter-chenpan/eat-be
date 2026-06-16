@@ -397,8 +397,14 @@ pub async fn send_message_stream(
             .filter_map(|m| model_to_chat_message(m))
             .collect(),
         Err(e) => {
-            eprintln!("load history err: {e}");
-            Vec::new()
+            eprintln!("load history err: {e}; falling back to user message only");
+            vec![openrouter::ChatMessage {
+                role: "user".to_string(),
+                content: Some(data.content.clone()),
+                tool_calls: None,
+                tool_call_id: None,
+                name: None,
+            }]
         }
     };
 
@@ -413,13 +419,12 @@ pub async fn send_message_stream(
     let mcp = _mcp.inner().clone();
     let db_clone = db.clone();
     let session_id = id.to_string();
-    let user_content = data.content.clone();
     let max_iterations = cfg.chat_max_tool_iterations;
 
     tokio::spawn(async move {
         let mut final_text = String::new();
         let mut hit_iter_cap = false;
-        let mut last_finish_reason: Option<String> = None;
+        let mut done_sent = false;
         let mut consecutive_mcp_failures: u32 = 0;
 
         'react_loop: loop {
@@ -493,8 +498,6 @@ pub async fn send_message_stream(
                 );
             }
 
-            last_finish_reason = finish_reason;
-
             if !pending_tool_calls.is_empty() {
                 let assistant_id = new_id();
                 let tool_args_json =
@@ -560,7 +563,11 @@ pub async fn send_message_stream(
                                 tool_call_id: Set(Some(tc.id.clone())),
                                 tool_name: Set(Some(tc.function.name.clone())),
                                 tool_args: Set(Some(
-                                    serde_json::to_string(&args).unwrap_or_default(),
+                                    serde_json::to_string(&args)
+                                        .unwrap_or_else(|e| {
+                                            eprintln!("tool_args to_string err: {e}");
+                                            tc.function.arguments.clone()
+                                        }),
                                 )),
                                 prompt_tokens: Set(None),
                                 completion_tokens: Set(None),
@@ -573,6 +580,7 @@ pub async fn send_message_stream(
                                     "data: {{\"error\":\"暂时无法查询菜谱库\"}}\n\n"
                                 ));
                                 let _ = tx.send("data: [DONE]\n\n".to_string());
+                                done_sent = true;
                                 break 'react_loop;
                             }
                             err_msg
@@ -588,7 +596,11 @@ pub async fn send_message_stream(
                         tool_call_id: Set(Some(tc.id.clone())),
                         tool_name: Set(Some(tc.function.name.clone())),
                         tool_args: Set(Some(
-                            serde_json::to_string(&args).unwrap_or_default(),
+                            serde_json::to_string(&args)
+                                .unwrap_or_else(|e| {
+                                    eprintln!("tool_args to_string err: {e}");
+                                    tc.function.arguments.clone()
+                                }),
                         )),
                         prompt_tokens: Set(None),
                         completion_tokens: Set(None),
@@ -660,10 +672,9 @@ pub async fn send_message_stream(
                 serde_json::Value::String(fallback)
             ));
         }
-        let _ = tx.send("data: [DONE]\n\n".to_string());
-
-        // Suppress unused-variable warnings
-        let _ = (user_content, last_finish_reason);
+        if !done_sent {
+            let _ = tx.send("data: [DONE]\n\n".to_string());
+        }
     });
 
     let s: SseStream = Box::pin(tokio_stream::wrappers::UnboundedReceiverStream::new(rx));
