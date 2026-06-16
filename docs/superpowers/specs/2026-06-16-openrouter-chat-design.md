@@ -38,10 +38,10 @@ Add a chat API to the `eatbe` backend that streams LLM responses from OpenRouter
 
 1. Auth via `Claims` (JWT, mandatory). Increment Redis rate-limit counter; reject with `Rep` JSON if over the per-minute cap.
 2. Load the session row by `id`. Return 404 if not found OR `user_id != claims.sub`.
-3. Load the last N (e.g. 20) messages for the session, ordered by `created_at ASC`.
-4. Persist the new user message to `chat_messages` with `status='complete'`.
-5. Build the OpenRouter request: messages = `[system, ...history, new user msg]`, `stream: true`, model = configured default.
-6. Insert a "pending" assistant message row in `chat_messages` (`status='pending'`, empty content).
+3. Load the last 20 messages for the session, ordered by `created_at ASC` (filter to `role IN ('user','assistant')` — defensive, in case any `system` rows exist).
+4. Build the OpenRouter request: messages = `[system, ...history, new user msg]`, `stream: true`, model = configured default.
+5. Issue the request. On HTTP/connect/timeout failure, return JSON `Rep` error immediately and do **not** persist either the user or the assistant message (we don't know if the LLM ever saw the request).
+6. On success, persist the new user message to `chat_messages` with `status='complete'`, then insert a "pending" assistant message row (`status='pending'`, empty content).
 7. Open the SSE response to the client (`Content-Type: text/event-stream`, `Cache-Control: no-cache`).
 8. Concurrently `tokio::spawn` a task that consumes the OpenRouter `reqwest::Response` byte stream:
    - For each SSE event, append the `delta.content` to an accumulator, and forward the chunk to the client as `data: <delta>\n\n`.
@@ -142,7 +142,7 @@ Server-injected, not client-controllable. Client-supplied content is treated pur
 
 1. **Auth / validation / rate-limit** (no stream started yet) — standard `Rep<()>` JSON with codes from the existing `Code` enum (`Unauthorized`, `BadRequest`, `BusinessError`).
 
-2. **OpenRouter pre-stream failure** (non-2xx, network error, timeout) — same JSON shape. The user message is **not** persisted (we don't know if the LLM saw it). The pending assistant row is created and immediately updated to `status='failed'` with the error text.
+2. **OpenRouter pre-stream failure** (non-2xx, network error, timeout before first response) — same JSON shape. Neither the user message nor the assistant message is persisted (we don't know if the LLM ever saw the request). If OpenRouter returns a 200 with an error in the first SSE event, that's treated as a mid-stream failure (case 3) — the user and pending assistant rows are persisted, the assistant row is then updated to `status='failed'`.
 
 3. **Mid-stream failure** (connection drop, partial response) — stream is already open. Emit a final `data: {"error": "..."}\n\n` event followed by `data: [DONE]\n\n`. Mark the assistant row `status='failed'` with whatever content was accumulated and the error text.
 
@@ -168,7 +168,7 @@ No automated tests. Manual smoke test:
 6. **Delete** — `DELETE /api/chat/sessions/<id>` returns 200; subsequent GET returns 404.
 7. **Auth boundary** — request with another user's session_id returns 404 (not 403, to avoid leaking existence).
 8. **Rate limit** — 21 requests in one minute; the 21st returns the rate-limit error.
-9. **OpenRouter failure** — with a bad API key, the send endpoint returns JSON error, not a stream, and the assistant message row is persisted as `status='failed'`.
+9. **OpenRouter failure** — with a bad API key, the send endpoint returns JSON error, not a stream, and no message rows are persisted (pre-stream failure case).
 
 ## Open questions
 
