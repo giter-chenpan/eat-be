@@ -27,6 +27,7 @@ rocket_okapi = { version = "0.9.0", features = ["swagger", "rapidoc"] }
 schemars = "0.8"
 rand = "0.8.5"
 reqwest = { version = "0.12.15", features = ["json"] }
+rmcp = { version = "0.15", features = ["client", "transport-streamable-http-client"] }
 scraper = "0.23.1"
 openssl = { version = "0.10", features = ["vendored"] }
 bcrypt = "0.17.0"
